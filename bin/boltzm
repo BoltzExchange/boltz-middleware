@@ -1,0 +1,41 @@
+#!/usr/bin/env node
+
+const BoltzMiddleware = require('../dist/BoltzMiddleware').default;
+
+const { argv } = require('yargs').options({
+  datadir: {
+    describe: 'Data directory of boltz-middleware',
+    type: 'string',
+  },
+  logpath: {
+    describe: 'Path to the log file',
+    type: 'string',
+  },
+  loglevel: {
+    describe: 'Verbosity of the logger',
+    alias: 'l',
+    type: 'string',
+    choices: ['error', 'warn', 'info', 'verbose', 'debug', 'silly'],
+  },
+  'boltz.host': {
+    describe: 'Host of the Boltz gRPC interface',
+    type: 'string',
+  },
+  'boltz.port': {
+    describe: 'Port of the Boltz gRPC interface',
+    type: 'number',
+  },
+  'boltz.certpath': {
+    describe: 'Path to the SSL certificate of Boltz',
+    type: 'string',
+  },
+});
+
+// Delete non-config keys from argv
+delete argv._;
+delete argv.version;
+delete argv.help;
+delete argv.$0;
+
+const boltzMiddleware = new BoltzMiddleware(argv);
+boltzMiddleware.start();

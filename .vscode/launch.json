@@ -6,7 +6,7 @@
       "request": "launch",
       "name": "Debug",
       "args": [
-        "bin/boltz"
+        "bin/boltzm"
       ],
       "runtimeArgs": [
         "--nolazy",
