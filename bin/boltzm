@@ -17,6 +17,14 @@ const { argv } = require('yargs').options({
     type: 'string',
     choices: ['error', 'warn', 'info', 'verbose', 'debug', 'silly'],
   },
+  'api.host': {
+    describe: 'Host of the boltz-middleware REST API',
+    type: 'string',
+  },
+  'api.port': {
+    describe: 'Port of the boltz-middleware REST API',
+    type: 'number',
+  },
   'boltz.host': {
     describe: 'Host of the Boltz gRPC interface',
     type: 'string',

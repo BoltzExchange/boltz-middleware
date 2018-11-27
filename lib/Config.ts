@@ -1,6 +1,7 @@
 import { Arguments } from 'yargs';
 import fs from 'fs';
 import path from 'path';
+import { ApiConfig } from './api/Api';
 import { BoltzConfig } from './boltz/BoltzClient';
 import { getServiceDir, deepMerge, resolveHome } from './Utils';
 
@@ -8,6 +9,8 @@ import { getServiceDir, deepMerge, resolveHome } from './Utils';
 class Config {
   public logpath: string;
   public loglevel: string;
+
+  public api: ApiConfig;
 
   public boltz: BoltzConfig;
 
@@ -19,6 +22,11 @@ class Config {
 
     this.logpath = logpath;
     this.loglevel = process.env.NODE_ENV === 'production' ? 'info' : 'debug';
+
+    this.api = {
+      host: '127.0.0.1',
+      port: 9001,
+    };
 
     this.boltz = {
       host: '127.0.0.1',
