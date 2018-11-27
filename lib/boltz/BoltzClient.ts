@@ -98,6 +98,21 @@ class BoltzClient extends BaseClient {
   public getInfo = () => {
     return this.unaryCall<boltzrpc.GetInfoRequest, boltzrpc.GetInfoResponse.AsObject>('getInfo', new boltzrpc.GetInfoRequest());
   }
+
+  public createSwap = (pairId: string, orderSide: boltzrpc.OrderSide, invoice: string, refundPublicKey: string, outputType?: boltzrpc.OutputType) => {
+    const request = new boltzrpc.CreateSwapRequest();
+
+    request.setPairId(pairId);
+    request.setOrderSide(orderSide);
+    request.setInvoice(invoice);
+    request.setRefundPublicKey(refundPublicKey);
+
+    if (outputType) {
+      request.setOutputType(outputType);
+    }
+
+    return this.unaryCall<boltzrpc.CreateSwapRequest, boltzrpc.CreateSwapResponse>('createSwap', request);
+  }
 }
 
 export default BoltzClient;
