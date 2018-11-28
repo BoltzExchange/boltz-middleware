@@ -2,7 +2,6 @@ import { Arguments } from 'yargs';
 import Config from './Config';
 import Logger from './Logger';
 import BoltzClient from './boltz/BoltzClient';
-import { stringify } from './Utils';
 import Api from './api/Api';
 import Service from './service/Service';
 
@@ -34,11 +33,6 @@ class BoltzMiddleware {
 
   private connectBoltz = async () => {
     await this.boltzClient.connect();
-
-    if (this.boltzClient.isConnected()) {
-      this.logger.info('Connected to Boltz');
-      this.logger.verbose(`Boltz status: ${stringify(await this.boltzClient.getInfo())}`);
-    }
   }
 }
 
