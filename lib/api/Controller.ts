@@ -8,9 +8,13 @@ class Controller {
   public createSwap = async (req: Request, res: Response) => {
     const { pairId, orderSide, invoice, refundPublicKey } = req.body;
 
-    const response = await this.service.createSwap(pairId, orderSide, invoice, refundPublicKey);
+    try {
+      const response = await this.service.createSwap(pairId, orderSide, invoice, refundPublicKey);
 
-    this.swapCreatedResponse(res, response);
+      this.swapCreatedResponse(res, response);
+    } catch (error) {
+      this.swapCreatedResponse(res, error);
+    }
   }
 
   private swapCreatedResponse = (res: Response, data: any) => {
