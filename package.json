@@ -39,6 +39,7 @@
     "url": "git+https://github.com/BoltzExchange/boltz-middleware.git"
   },
   "dependencies": {
+    "cors": "^2.8.5",
     "cross-os": "^1.3.0",
     "express": "^4.16.4",
     "grpc": "^1.16.1",
