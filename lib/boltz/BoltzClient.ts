@@ -6,10 +6,11 @@ import Errors from './Errors';
 import * as boltzrpc from '../proto/boltzrpc_pb';
 import { BoltzClient as GrpcClient } from '../proto/boltzrpc_grpc_pb';
 import { ClientStatus } from '../consts/ClientStatus';
+import { stringify } from '../Utils';
 
-// TODO: error handling
-
-/** The configurable options of the Boltz client. */
+/**
+ * The configurable options of the Boltz client
+ */
 type BoltzConfig = {
   host: string;
   port: number;
@@ -56,13 +57,16 @@ class BoltzClient extends BaseClient {
       this.lightning = new GrpcClient(this.uri, this.credentials);
 
       try {
-        await this.getInfo();
+        const getInfo = await this.getInfo();
+
+        this.logger.info('Connected to Boltz');
+        this.logger.verbose(`Boltz status: ${stringify(getInfo)}`);
 
         this.setClientStatus(ClientStatus.Connected);
         this.clearReconnectTimer();
 
       } catch (error) {
-        this.logger.error(`Could not connect to Boltz: ${error.details}`);
+        this.logger.error(`Could not connect to Boltz: ${error.message}`);
         this.logger.verbose(`Retrying in ${this.RECONNECT_INTERVAL} ms`);
 
         this.setClientStatus(ClientStatus.Disconnected);

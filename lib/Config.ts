@@ -1,11 +1,11 @@
 import { Arguments } from 'yargs';
 import fs from 'fs';
 import path from 'path';
+import toml from 'toml';
 import { ApiConfig } from './api/Api';
 import { BoltzConfig } from './boltz/BoltzClient';
 import { getServiceDir, deepMerge, resolveHome } from './Utils';
 
-// TODO: config file
 class Config {
   public logpath: string;
   public loglevel: string;
@@ -17,8 +17,12 @@ class Config {
   private defaultDataDir = getServiceDir('boltz-middleware');
   private dataDir = this.defaultDataDir;
 
+  private configpath: string;
+
   constructor() {
-    const { logpath } = this.getDataDirPaths(this.defaultDataDir);
+    const { configpath, logpath } = this.getDataDirPaths(this.defaultDataDir);
+
+    this.configpath = configpath;
 
     this.logpath = logpath;
     this.loglevel = process.env.NODE_ENV === 'production' ? 'info' : 'debug';
@@ -55,12 +59,26 @@ class Config {
       }
     });
 
-    // The data dir is not the default one therefore the paths
-    // dervied from it need to be updated
-    if (parameters.datadir && parameters.datadir !== this.defaultDataDir) {
+    if (parameters.datadir) {
       this.dataDir = parameters.datadir;
 
       deepMerge(this, this.getDataDirPaths(parameters.datadir));
+    }
+
+    if (fs.existsSync(this.configpath)) {
+      const config = fs.readFileSync(this.configpath, 'utf-8');
+
+      try {
+        const parsedConfig = toml.parse(config);
+
+        if (!parameters.datadir && parsedConfig.datadir) {
+          deepMerge(this, this.getDataDirPaths(parsedConfig.datadir));
+        }
+
+        deepMerge(this, parsedConfig);
+      } catch (error) {
+        throw `Error parsing config file in line ${error.line}:${error.column}: ${error.message}`;
+      }
     }
 
     deepMerge(this, parameters);
@@ -72,6 +90,7 @@ class Config {
 
   private getDataDirPaths = (dataDir: string) => {
     return {
+      configpath: path.join(dataDir, 'boltz.conf'),
       logpath: path.join(dataDir, 'boltz.log'),
     };
   }

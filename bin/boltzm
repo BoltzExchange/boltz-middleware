@@ -7,6 +7,10 @@ const { argv } = require('yargs').options({
     describe: 'Data directory of boltz-middleware',
     type: 'string',
   },
+  configpath: {
+    describe: 'Path to the config file',
+    type: 'string',
+  },
   logpath: {
     describe: 'Path to the log file',
     type: 'string',

@@ -1,7 +1,6 @@
 import BoltzClient from '../boltz/BoltzClient';
 import { OrderSide, OutputType } from '../proto/boltzrpc_pb';
 
-// TODO: error handling
 class Service {
   constructor(private boltz: BoltzClient) {}
 
