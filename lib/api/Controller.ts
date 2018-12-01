@@ -21,6 +21,21 @@ class Controller {
     }
   }
 
+  public broadcastTransaction = async (req: Request, res: Response) => {
+    try {
+      const { currency, transactionHex } = this.validateBody(req.body, [
+        { name: 'currency', type: 'string' },
+        { name: 'transactionHex', type: 'string' },
+      ]);
+
+      const response = await this.service.broadcastTransaction(currency, transactionHex);
+      this.successResponse(res, response);
+
+    } catch (error) {
+      this.writeErrorResponse(res, error);
+    }
+  }
+
   /**
    * Makes sure that all required arguments were provided in the body correctly
    *
@@ -54,14 +69,19 @@ class Controller {
     }
   }
 
+  private successResponse = (res: Response, data: object) => {
+    this.setContentTypeJson(res);
+    res.status(200).json(data);
+  }
+
+  private swapCreatedResponse = (res: Response, data: object) => {
+    this.setContentTypeJson(res);
+    res.status(201).json(data);
+  }
+
   private invalidArgumentsResponse = (res: Response, error: string) => {
     this.setContentTypeJson(res);
     res.status(400).json({ error });
-  }
-
-  private swapCreatedResponse = (res: Response, data: any) => {
-    this.setContentTypeJson(res);
-    res.status(201).json(data);
   }
 
   private setContentTypeJson = (res: Response) => {

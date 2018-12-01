@@ -5,6 +5,13 @@ class Service {
   constructor(private boltz: BoltzClient) {}
 
   /**
+   * Broadcasts a hex encoded transaction on the specified network
+   */
+  public broadcastTransaction = (currency: string, transactionHex: string) => {
+    return this.boltz.broadcastTransaction(currency, transactionHex);
+  }
+
+  /**
    * Creates a new Swap from the chain to Lightning
    */
   public createSwap = (pairId: string, orderSide: OrderSide, invoice: string, refundPublicKey: string) => {
