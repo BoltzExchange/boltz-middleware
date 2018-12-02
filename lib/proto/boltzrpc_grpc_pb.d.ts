@@ -10,6 +10,7 @@ interface IBoltzService extends grpc.ServiceDefinition<grpc.UntypedServiceImplem
     getInfo: IBoltzService_IGetInfo;
     getBalance: IBoltzService_IGetBalance;
     newAddress: IBoltzService_INewAddress;
+    broadcastTransaction: IBoltzService_IBroadcastTransaction;
     createSwap: IBoltzService_ICreateSwap;
     createReverseSwap: IBoltzService_ICreateReverseSwap;
 }
@@ -41,6 +42,15 @@ interface IBoltzService_INewAddress extends grpc.MethodDefinition<boltzrpc_pb.Ne
     responseSerialize: grpc.serialize<boltzrpc_pb.NewAddressResponse>;
     responseDeserialize: grpc.deserialize<boltzrpc_pb.NewAddressResponse>;
 }
+interface IBoltzService_IBroadcastTransaction extends grpc.MethodDefinition<boltzrpc_pb.BroadcastTransactionRequest, boltzrpc_pb.BroadcastTransactionResponse> {
+    path: string; // "/boltzrpc.Boltz/BroadcastTransaction"
+    requestStream: boolean; // false
+    responseStream: boolean; // false
+    requestSerialize: grpc.serialize<boltzrpc_pb.BroadcastTransactionRequest>;
+    requestDeserialize: grpc.deserialize<boltzrpc_pb.BroadcastTransactionRequest>;
+    responseSerialize: grpc.serialize<boltzrpc_pb.BroadcastTransactionResponse>;
+    responseDeserialize: grpc.deserialize<boltzrpc_pb.BroadcastTransactionResponse>;
+}
 interface IBoltzService_ICreateSwap extends grpc.MethodDefinition<boltzrpc_pb.CreateSwapRequest, boltzrpc_pb.CreateSwapResponse> {
     path: string; // "/boltzrpc.Boltz/CreateSwap"
     requestStream: boolean; // false
@@ -66,6 +76,7 @@ export interface IBoltzServer {
     getInfo: grpc.handleUnaryCall<boltzrpc_pb.GetInfoRequest, boltzrpc_pb.GetInfoResponse>;
     getBalance: grpc.handleUnaryCall<boltzrpc_pb.GetBalanceRequest, boltzrpc_pb.GetBalanceResponse>;
     newAddress: grpc.handleUnaryCall<boltzrpc_pb.NewAddressRequest, boltzrpc_pb.NewAddressResponse>;
+    broadcastTransaction: grpc.handleUnaryCall<boltzrpc_pb.BroadcastTransactionRequest, boltzrpc_pb.BroadcastTransactionResponse>;
     createSwap: grpc.handleUnaryCall<boltzrpc_pb.CreateSwapRequest, boltzrpc_pb.CreateSwapResponse>;
     createReverseSwap: grpc.handleUnaryCall<boltzrpc_pb.CreateReverseSwapRequest, boltzrpc_pb.CreateReverseSwapResponse>;
 }
@@ -80,6 +91,9 @@ export interface IBoltzClient {
     newAddress(request: boltzrpc_pb.NewAddressRequest, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.NewAddressResponse) => void): grpc.ClientUnaryCall;
     newAddress(request: boltzrpc_pb.NewAddressRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.NewAddressResponse) => void): grpc.ClientUnaryCall;
     newAddress(request: boltzrpc_pb.NewAddressRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.NewAddressResponse) => void): grpc.ClientUnaryCall;
+    broadcastTransaction(request: boltzrpc_pb.BroadcastTransactionRequest, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.BroadcastTransactionResponse) => void): grpc.ClientUnaryCall;
+    broadcastTransaction(request: boltzrpc_pb.BroadcastTransactionRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.BroadcastTransactionResponse) => void): grpc.ClientUnaryCall;
+    broadcastTransaction(request: boltzrpc_pb.BroadcastTransactionRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.BroadcastTransactionResponse) => void): grpc.ClientUnaryCall;
     createSwap(request: boltzrpc_pb.CreateSwapRequest, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.CreateSwapResponse) => void): grpc.ClientUnaryCall;
     createSwap(request: boltzrpc_pb.CreateSwapRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.CreateSwapResponse) => void): grpc.ClientUnaryCall;
     createSwap(request: boltzrpc_pb.CreateSwapRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.CreateSwapResponse) => void): grpc.ClientUnaryCall;
@@ -99,6 +113,9 @@ export class BoltzClient extends grpc.Client implements IBoltzClient {
     public newAddress(request: boltzrpc_pb.NewAddressRequest, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.NewAddressResponse) => void): grpc.ClientUnaryCall;
     public newAddress(request: boltzrpc_pb.NewAddressRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.NewAddressResponse) => void): grpc.ClientUnaryCall;
     public newAddress(request: boltzrpc_pb.NewAddressRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.NewAddressResponse) => void): grpc.ClientUnaryCall;
+    public broadcastTransaction(request: boltzrpc_pb.BroadcastTransactionRequest, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.BroadcastTransactionResponse) => void): grpc.ClientUnaryCall;
+    public broadcastTransaction(request: boltzrpc_pb.BroadcastTransactionRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.BroadcastTransactionResponse) => void): grpc.ClientUnaryCall;
+    public broadcastTransaction(request: boltzrpc_pb.BroadcastTransactionRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.BroadcastTransactionResponse) => void): grpc.ClientUnaryCall;
     public createSwap(request: boltzrpc_pb.CreateSwapRequest, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.CreateSwapResponse) => void): grpc.ClientUnaryCall;
     public createSwap(request: boltzrpc_pb.CreateSwapRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.CreateSwapResponse) => void): grpc.ClientUnaryCall;
     public createSwap(request: boltzrpc_pb.CreateSwapRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: boltzrpc_pb.CreateSwapResponse) => void): grpc.ClientUnaryCall;

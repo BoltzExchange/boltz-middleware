@@ -117,6 +117,15 @@ class BoltzClient extends BaseClient {
 
     return this.unaryCall<boltzrpc.CreateSwapRequest, boltzrpc.CreateSwapResponse>('createSwap', request);
   }
+
+  public broadcastTransaction = (currency: string, transactionHex: string) => {
+    const request = new boltzrpc.BroadcastTransactionRequest();
+
+    request.setCurrency(currency);
+    request.setTransactionHex(transactionHex);
+
+    return this.unaryCall<boltzrpc.BroadcastTransactionRequest, boltzrpc.BroadcastTransactionResponse>('broadcastTransaction', request);
+  }
 }
 
 export default BoltzClient;

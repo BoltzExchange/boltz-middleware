@@ -28,6 +28,8 @@ class Api {
 
   private registerRoutes = (controller: Controller) => {
     this.app.route('/createswap').post(controller.createSwap);
+
+    this.app.route('/broadcasttransaction').post(controller.broadcastTransaction);
   }
 }
 
