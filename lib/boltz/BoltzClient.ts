@@ -97,12 +97,39 @@ class BoltzClient extends BaseClient {
   }
 
   /**
-   * Gets general information about the Boltz instance
+   * Gets general information about this Boltz instance and the nodes it is connected to
    */
   public getInfo = () => {
     return this.unaryCall<boltzrpc.GetInfoRequest, boltzrpc.GetInfoResponse.AsObject>('getInfo', new boltzrpc.GetInfoRequest());
   }
 
+  /**
+   * Gets a hex encoded transaction from a transaction hash on the specified network
+   */
+  public getTransaction = (currency: string, transactionHash: string) => {
+    const request = new boltzrpc.GetTransactionRequest();
+
+    request.setCurrency(currency);
+    request.setTransactionHash(transactionHash);
+
+    return this.unaryCall<boltzrpc.GetTransactionRequest, boltzrpc.GetTransactionResponse>('getTransaction', request);
+  }
+
+  /**
+   * Broadcasts a hex encoded transaction on the specified network
+   */
+  public broadcastTransaction = (currency: string, transactionHex: string) => {
+    const request = new boltzrpc.BroadcastTransactionRequest();
+
+    request.setCurrency(currency);
+    request.setTransactionHex(transactionHex);
+
+    return this.unaryCall<boltzrpc.BroadcastTransactionRequest, boltzrpc.BroadcastTransactionResponse>('broadcastTransaction', request);
+  }
+
+  /**
+   * Creates a new Swap from the chain to Lightning
+   */
   public createSwap = (pairId: string, orderSide: boltzrpc.OrderSide, invoice: string, refundPublicKey: string, outputType?: boltzrpc.OutputType) => {
     const request = new boltzrpc.CreateSwapRequest();
 
@@ -116,15 +143,6 @@ class BoltzClient extends BaseClient {
     }
 
     return this.unaryCall<boltzrpc.CreateSwapRequest, boltzrpc.CreateSwapResponse>('createSwap', request);
-  }
-
-  public broadcastTransaction = (currency: string, transactionHex: string) => {
-    const request = new boltzrpc.BroadcastTransactionRequest();
-
-    request.setCurrency(currency);
-    request.setTransactionHex(transactionHex);
-
-    return this.unaryCall<boltzrpc.BroadcastTransactionRequest, boltzrpc.BroadcastTransactionResponse>('broadcastTransaction', request);
   }
 }
 
