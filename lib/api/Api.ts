@@ -1,4 +1,5 @@
 import express, { Application } from 'express';
+import cors from 'cors';
 import Logger from '../Logger';
 import Controller from './Controller';
 import Service from '../service/Service';
@@ -14,6 +15,7 @@ class Api {
 
   constructor(private logger: Logger, private config: ApiConfig, service: Service) {
     this.app = express();
+    this.app.use(cors());
     this.app.use(express.json());
 
     const controller = new Controller(service);
