@@ -4,17 +4,15 @@ import Service from '../service/Service';
 class Controller {
   constructor(private service: Service) {}
 
-  public createSwap = async (req: Request, res: Response) => {
+  public getTransaction = async (req: Request, res: Response) => {
     try {
-      const { pairId, orderSide, invoice, refundPublicKey } = this.validateBody(req.body, [
-        { name: 'pairId', type: 'string' },
-        { name: 'orderSide', type: 'number' },
-        { name: 'invoice', type: 'string' },
-        { name: 'refundPublicKey', type: 'string' },
+      const { currency, transactionHash } = this.validateBody(req.body, [
+        { name: 'currency', type: 'string' },
+        { name: 'transactionHash', type: 'string' },
       ]);
 
-      const response = await this.service.createSwap(pairId, orderSide, invoice, refundPublicKey);
-      this.swapCreatedResponse(res, response);
+      const response = await this.service.getTransaction(currency, transactionHash);
+      this.successResponse(res, response);
 
     } catch (error) {
       this.writeErrorResponse(res, error);
@@ -30,6 +28,23 @@ class Controller {
 
       const response = await this.service.broadcastTransaction(currency, transactionHex);
       this.successResponse(res, response);
+
+    } catch (error) {
+      this.writeErrorResponse(res, error);
+    }
+  }
+
+  public createSwap = async (req: Request, res: Response) => {
+    try {
+      const { pairId, orderSide, invoice, refundPublicKey } = this.validateBody(req.body, [
+        { name: 'pairId', type: 'string' },
+        { name: 'orderSide', type: 'number' },
+        { name: 'invoice', type: 'string' },
+        { name: 'refundPublicKey', type: 'string' },
+      ]);
+
+      const response = await this.service.createSwap(pairId, orderSide, invoice, refundPublicKey);
+      this.swapCreatedResponse(res, response);
 
     } catch (error) {
       this.writeErrorResponse(res, error);

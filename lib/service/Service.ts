@@ -5,6 +5,13 @@ class Service {
   constructor(private boltz: BoltzClient) {}
 
   /**
+   * Gets a hex encoded transaction from a transaction hash on the specified network
+   */
+  public getTransaction = (currency: string, transactionHash: string) => {
+    return this.boltz.getTransaction(currency, transactionHash);
+  }
+
+  /**
    * Broadcasts a hex encoded transaction on the specified network
    */
   public broadcastTransaction = (currency: string, transactionHex: string) => {
