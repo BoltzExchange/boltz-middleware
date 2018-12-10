@@ -22,7 +22,7 @@ class Service {
    * Creates a new Swap from the chain to Lightning
    */
   public createSwap = (pairId: string, orderSide: OrderSide, invoice: string, refundPublicKey: string) => {
-    return this.boltz.createSwap(pairId, orderSide, invoice, refundPublicKey, OutputType.BECH32);
+    return this.boltz.createSwap(pairId, orderSide, invoice, refundPublicKey, OutputType.COMPATIBILITY);
   }
 }
 
