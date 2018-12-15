@@ -6,13 +6,22 @@ import { ApiConfig } from './api/Api';
 import { BoltzConfig } from './boltz/BoltzClient';
 import { getServiceDir, deepMerge, resolveHome } from './Utils';
 
+type PairConfig = {
+  base: string;
+  quote: string;
+};
+
 class Config {
   public logpath: string;
   public loglevel: string;
 
+  public dbpath: string;
+
   public api: ApiConfig;
 
   public boltz: BoltzConfig;
+
+  public pairs: PairConfig[];
 
   private defaultDataDir = getServiceDir('boltz-middleware');
   private dataDir = this.defaultDataDir;
@@ -20,12 +29,14 @@ class Config {
   private configpath: string;
 
   constructor() {
-    const { configpath, logpath } = this.getDataDirPaths(this.defaultDataDir);
+    const { configpath, logpath, dbpath } = this.getDataDirPaths(this.defaultDataDir);
 
     this.configpath = configpath;
 
     this.logpath = logpath;
     this.loglevel = process.env.NODE_ENV === 'production' ? 'info' : 'debug';
+
+    this.dbpath = dbpath;
 
     this.api = {
       host: '127.0.0.1',
@@ -37,9 +48,16 @@ class Config {
       port: 9000,
       certpath: path.join(getServiceDir('boltz'), 'tls.cert'),
     };
+
+    this.pairs = [
+      {
+        base: 'LTC',
+        quote: 'BTC',
+      },
+    ];
   }
 
-  public load = (argv: Arguments) => {
+  public init = (argv: Arguments) => {
     this.parseParameters(argv);
   }
 
@@ -50,6 +68,7 @@ class Config {
     // A list of all paths in which '~' should be resolved
     const pathsToResolve = [
       'logpath',
+      'dbpath',
       'boltz.certpath',
     ];
 
@@ -92,8 +111,10 @@ class Config {
     return {
       configpath: path.join(dataDir, 'boltz.conf'),
       logpath: path.join(dataDir, 'boltz.log'),
+      dbpath: path.join(dataDir, 'boltz.db'),
     };
   }
 }
 
 export default Config;
+export { PairConfig };

@@ -1,5 +1,25 @@
 import os from 'os';
 import path from 'path';
+import { PairFactory } from './consts/Database';
+
+/**
+ * Get the pair id of a pair
+ */
+export const getPairId = (pair: PairFactory): string => {
+  return `${pair.base}/${pair.quote}`;
+};
+
+/**
+ * Get the quote and base asset of a pair id
+ */
+export const splitPairId = (pairId: string): { quote: string, base: string } => {
+  const split = pairId.split('/');
+
+  return {
+    base: split[0],
+    quote: split[1],
+  };
+};
 
 /**
  * Gets the current date in the LocaleString format.
