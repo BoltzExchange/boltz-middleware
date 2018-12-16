@@ -3,6 +3,7 @@ import Database from '../db/Database';
 import BoltzClient from '../boltz/BoltzClient';
 import { OrderSide, OutputType, CurrencyInfo } from '../proto/boltzrpc_pb';
 import PairRepository from './PairRepository';
+import RateProvider from '../rates/RateProvider';
 import { PairInstance, PairFactory } from '../consts/Database';
 import { stringify } from '../Utils';
 import Errors from './Errors';
@@ -20,12 +21,15 @@ type Pair = {
   rate: number;
 };
 
+// TODO: update pairs regularly
 class Service {
+  private rateProvider: RateProvider;
   private pairRepository: PairRepository;
 
   private pairs: Pair[] = [];
 
   constructor(private logger: Logger, db: Database, private boltz: BoltzClient) {
+    this.rateProvider = new RateProvider(this.logger);
     this.pairRepository = new PairRepository(db.models);
   }
 
@@ -85,18 +89,19 @@ class Service {
       }
     };
 
+    const rates = await this.rateProvider.getRates(dbPairs);
+
     dbPairs.forEach((pair) => {
       try {
         verifyBackendSupport(pair.base);
         verifyBackendSupport(pair.quote);
 
-        // TODO: get rate
         this.pairs.push({
           // The values have to be set manually to avoid "TypeError: Converting circular structure to JSON" errors
           id: pair.id,
           base: pair.base,
           quote: pair.quote,
-          rate: 0.008,
+          rate: rates.get(pair.id)!,
         });
       } catch (error) {
         this.logger.warn(`Could not initialise pair ${pair.id}: ${error.message}`);

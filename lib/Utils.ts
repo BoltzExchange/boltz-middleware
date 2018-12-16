@@ -41,6 +41,13 @@ export const stringify = (object: any) => {
 };
 
 /**
+ * Turns a map into an array
+ */
+export const mapToArray = (map: Map<any, any>) => {
+  return Array.from(map.entries());
+};
+
+/**
  * Check whether a variable is a non-array object
  */
 export const isObject = (val: any): boolean => {
