@@ -5,7 +5,7 @@ import { OrderSide, OutputType, CurrencyInfo } from '../proto/boltzrpc_pb';
 import PairRepository from './PairRepository';
 import RateProvider from '../rates/RateProvider';
 import { PairInstance, PairFactory } from '../consts/Database';
-import { stringify } from '../Utils';
+import { splitPairId, stringify, mapToArray } from '../Utils';
 import Errors from './Errors';
 
 type PairConfig = {
@@ -26,7 +26,7 @@ class Service {
   private rateProvider: RateProvider;
   private pairRepository: PairRepository;
 
-  private pairs: Pair[] = [];
+  private pairs = new Map<string, Pair>();
 
   constructor(private logger: Logger, db: Database, private boltz: BoltzClient) {
     this.rateProvider = new RateProvider(this.logger);
@@ -96,7 +96,7 @@ class Service {
         verifyBackendSupport(pair.base);
         verifyBackendSupport(pair.quote);
 
-        this.pairs.push({
+        this.pairs.set(pair.id, {
           // The values have to be set manually to avoid "TypeError: Converting circular structure to JSON" errors
           id: pair.id,
           base: pair.base,
@@ -108,7 +108,7 @@ class Service {
       }
     });
 
-    this.logger.verbose(`Initialised ${this.pairs.length} pairs: ${stringify(this.pairs)}`);
+    this.logger.verbose(`Initialised ${this.pairs.size} pairs: ${stringify(mapToArray(this.pairs))}`);
   }
 
   // TODO: allow filters
@@ -137,7 +137,15 @@ class Service {
    * Creates a new Swap from the chain to Lightning
    */
   public createSwap = (pairId: string, orderSide: OrderSide, invoice: string, refundPublicKey: string) => {
-    return this.boltz.createSwap(pairId, orderSide, invoice, refundPublicKey, OutputType.COMPATIBILITY);
+    const { base, quote } = splitPairId(pairId);
+
+    const pair = this.pairs.get(pairId);
+
+    if (pair === undefined) {
+      throw Errors.PAIR_NOT_SUPPORTED(pairId);
+    }
+
+    return this.boltz.createSwap(base, quote, orderSide, pair.rate, invoice, refundPublicKey, OutputType.COMPATIBILITY);
   }
 }
 
