@@ -4,6 +4,11 @@ import Service from '../service/Service';
 class Controller {
   constructor(private service: Service) {}
 
+  public getPairs = async (_req: Request, res: Response) => {
+    const response = this.service.getPairs();
+    this.successResponse(res, response);
+  }
+
   public getTransaction = async (req: Request, res: Response) => {
     try {
       const { currency, transactionHash } = this.validateBody(req.body, [

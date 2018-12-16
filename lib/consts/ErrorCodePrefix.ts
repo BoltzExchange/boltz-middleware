@@ -1,5 +1,6 @@
 export enum ErrorCodePrefix {
   General = 0,
   Api = 1,
-  Boltz = 2,
+  Service = 2,
+  BoltzClient = 3,
 }

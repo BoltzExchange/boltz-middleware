@@ -5,11 +5,7 @@ import toml from 'toml';
 import { ApiConfig } from './api/Api';
 import { BoltzConfig } from './boltz/BoltzClient';
 import { getServiceDir, deepMerge, resolveHome } from './Utils';
-
-type PairConfig = {
-  base: string;
-  quote: string;
-};
+import { PairConfig } from './service/Service';
 
 class Config {
   public logpath: string;

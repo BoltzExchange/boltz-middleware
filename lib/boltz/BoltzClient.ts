@@ -130,7 +130,9 @@ class BoltzClient extends BaseClient {
   /**
    * Creates a new Swap from the chain to Lightning
    */
-  public createSwap = (_pairId: string, orderSide: boltzrpc.OrderSide, invoice: string, refundPublicKey: string, outputType?: boltzrpc.OutputType) => {
+  public createSwap = (_pairId: string, orderSide: boltzrpc.OrderSide, invoice: string,
+    refundPublicKey: string, outputType?: boltzrpc.OutputType) => {
+
     const request = new boltzrpc.CreateSwapRequest();
 
     // request.setPairId(pairId);
