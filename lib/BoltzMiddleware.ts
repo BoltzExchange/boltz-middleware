@@ -4,29 +4,39 @@ import Logger from './Logger';
 import BoltzClient from './boltz/BoltzClient';
 import Api from './api/Api';
 import Service from './service/Service';
+import Database from './db/Database';
 
 class BoltzMiddleware {
   private config: Config;
   private logger: Logger;
 
+  private db: Database;
   private boltzClient: BoltzClient;
+
+  private service: Service;
 
   private api: Api;
 
   constructor(argv: Arguments) {
     this.config = new Config();
-    this.config.load(argv);
+    this.config.init(argv);
 
     this.logger = new Logger(this.config.logpath, this.config.loglevel);
 
+    this.db = new Database(this.logger, this.config.dbpath);
     this.boltzClient = new BoltzClient(this.logger, this.config.boltz);
 
-    const service = new Service(this.boltzClient);
-    this.api = new Api(this.logger, this.config.api, service);
+    this.service = new Service(this.logger, this.db, this.boltzClient);
+    this.api = new Api(this.logger, this.config.api, this.service);
   }
 
   public start = async () => {
-    await this.connectBoltz();
+    await Promise.all([
+      this.db.init(),
+      this.connectBoltz(),
+    ]);
+
+    await this.service.init(this.config.pairs);
 
     this.api.init();
   }

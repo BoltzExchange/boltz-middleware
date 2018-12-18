@@ -21,6 +21,10 @@ const { argv } = require('yargs').options({
     type: 'string',
     choices: ['error', 'warn', 'info', 'verbose', 'debug', 'silly'],
   },
+  dbpath: {
+    describe: 'Path to the database file',
+    type: 'string',
+  },
   'api.host': {
     describe: 'Host of the boltz-middleware REST API',
     type: 'string',
@@ -40,6 +44,10 @@ const { argv } = require('yargs').options({
   'boltz.certpath': {
     describe: 'Path to the SSL certificate of Boltz',
     type: 'string',
+  },
+  pairs: {
+    describe: 'Pairs that should be offered by the middleware',
+    type: 'array',
   },
 });
 

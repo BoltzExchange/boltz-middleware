@@ -1,8 +1,123 @@
+import Logger from '../Logger';
+import Database from '../db/Database';
 import BoltzClient from '../boltz/BoltzClient';
-import { OrderSide, OutputType } from '../proto/boltzrpc_pb';
+import { OrderSide, OutputType, CurrencyInfo } from '../proto/boltzrpc_pb';
+import PairRepository from './PairRepository';
+import RateProvider from '../rates/RateProvider';
+import { PairInstance, PairFactory } from '../consts/Database';
+import { splitPairId, stringify, mapToArray } from '../Utils';
+import Errors from './Errors';
 
+type PairConfig = {
+  base: string;
+  quote: string;
+};
+
+type Pair = {
+  id: string;
+  base: string;
+  quote: string;
+
+  rate: number;
+};
+
+// TODO: update pairs regularly
 class Service {
-  constructor(private boltz: BoltzClient) {}
+  private rateProvider: RateProvider;
+  private pairRepository: PairRepository;
+
+  private pairs = new Map<string, Pair>();
+
+  constructor(private logger: Logger, db: Database, private boltz: BoltzClient) {
+    this.rateProvider = new RateProvider(this.logger);
+    this.pairRepository = new PairRepository(db.models);
+  }
+
+  public init = async (pairs: PairConfig[]) => {
+    // Update the pairs in the database with the ones in the config
+    let dbPairs = await this.pairRepository.getPairs();
+
+    type PairArray = PairConfig[] | PairInstance[];
+
+    const comparePairArrays = (array: PairArray, compare: PairArray, callback: Function) => {
+      array.forEach((pair) => {
+        let inCompare = false;
+
+        compare.forEach((comaprePair) => {
+          if (pair.base === comaprePair.base && pair.quote === comaprePair.quote) {
+            inCompare = true;
+          }
+        });
+
+        if (!inCompare) {
+          callback(pair);
+        }
+      });
+    };
+
+    const promises: Promise<any>[] = [];
+
+    comparePairArrays(pairs, dbPairs, (pair: PairFactory) => {
+      promises.push(this.pairRepository.addPair(pair));
+      this.logger.debug(`Adding pair to database: ${stringify(pair)}`);
+    });
+
+    comparePairArrays(dbPairs, pairs, (pair: PairFactory) => {
+      promises.push(this.pairRepository.removePair(pair));
+      this.logger.debug(`Removing pair from database: ${stringify(pair)}`);
+    });
+
+    await Promise.all(promises);
+
+    if (promises.length !== 0) {
+      dbPairs = await this.pairRepository.getPairs();
+    }
+
+    this.logger.verbose('Updated pairs in database with config');
+
+    // Make sure all pairs are supported by the backend and init the pairs array
+    const { chainsList } = await this.boltz.getInfo();
+    const chainMap = new Map<string, CurrencyInfo.AsObject>();
+
+    chainsList.forEach((chain) => {
+      chainMap.set(chain.symbol, chain);
+    });
+
+    const verifyBackendSupport = (symbol: string) => {
+      if (!chainMap.get(symbol)) {
+        throw Errors.CURRENCY_NOT_SUPPORTED_BY_BACKEND(symbol);
+      }
+    };
+
+    const rates = await this.rateProvider.getRates(dbPairs);
+
+    dbPairs.forEach((pair) => {
+      try {
+        verifyBackendSupport(pair.base);
+        verifyBackendSupport(pair.quote);
+
+        this.pairs.set(pair.id, {
+          // The values have to be set manually to avoid "TypeError: Converting circular structure to JSON" errors
+          id: pair.id,
+          base: pair.base,
+          quote: pair.quote,
+          rate: rates.get(pair.id)!,
+        });
+      } catch (error) {
+        this.logger.warn(`Could not initialise pair ${pair.id}: ${error.message}`);
+      }
+    });
+
+    this.logger.verbose(`Initialised ${this.pairs.size} pairs: ${stringify(mapToArray(this.pairs))}`);
+  }
+
+  // TODO: allow filters
+  /**
+   * Gets all supported pairs and their conversion rates
+   */
+  public getPairs = () => {
+    return this.pairs;
+  }
 
   /**
    * Gets a hex encoded transaction from a transaction hash on the specified network
@@ -22,8 +137,17 @@ class Service {
    * Creates a new Swap from the chain to Lightning
    */
   public createSwap = (pairId: string, orderSide: OrderSide, invoice: string, refundPublicKey: string) => {
-    return this.boltz.createSwap(pairId, orderSide, invoice, refundPublicKey, OutputType.COMPATIBILITY);
+    const { base, quote } = splitPairId(pairId);
+
+    const pair = this.pairs.get(pairId);
+
+    if (pair === undefined) {
+      throw Errors.PAIR_NOT_SUPPORTED(pairId);
+    }
+
+    return this.boltz.createSwap(base, quote, orderSide, pair.rate, invoice, refundPublicKey, OutputType.COMPATIBILITY);
   }
 }
 
 export default Service;
+export { PairConfig };
