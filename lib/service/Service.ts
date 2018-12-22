@@ -1,3 +1,5 @@
+import { EventEmitter } from 'events';
+import uuidv1 from 'uuid/v1';
 import Logger from '../Logger';
 import Database from '../db/Database';
 import BoltzClient from '../boltz/BoltzClient';
@@ -21,14 +23,33 @@ type Pair = {
   rate: number;
 };
 
-// TODO: update pairs regularly
-class Service {
+type PendingSwap = {
+  invoice: string;
+  address: string;
+};
+
+interface Service {
+  on(event: 'swap.update', listener: (id: string, message: string) => void): this;
+  emit(event: 'swap.update', id: string, message: string): boolean;
+}
+
+// TODO: update rates of pairs regularly
+class Service extends EventEmitter {
+  // A map between the ids and details of all pending swaps
+  private pendingSwaps = new Map<string, PendingSwap>();
+
   private rateProvider: RateProvider;
   private pairRepository: PairRepository;
 
   private pairs = new Map<string, Pair>();
 
+  // This object is needed because a stringifyied Map is an empty object
+  // tslint:disable-next-line:no-null-keyword
+  private pairsObject = {};
+
   constructor(private logger: Logger, db: Database, private boltz: BoltzClient) {
+    super();
+
     this.rateProvider = new RateProvider(this.logger);
     this.pairRepository = new PairRepository(db.models);
   }
@@ -96,19 +117,40 @@ class Service {
         verifyBackendSupport(pair.base);
         verifyBackendSupport(pair.quote);
 
+        const rate = rates.get(pair.id)!;
+
         this.pairs.set(pair.id, {
           // The values have to be set manually to avoid "TypeError: Converting circular structure to JSON" errors
+          rate,
           id: pair.id,
           base: pair.base,
           quote: pair.quote,
-          rate: rates.get(pair.id)!,
         });
+
+        this.pairsObject[pair.id] = rate;
       } catch (error) {
         this.logger.warn(`Could not initialise pair ${pair.id}: ${error.message}`);
       }
     });
 
     this.logger.verbose(`Initialised ${this.pairs.size} pairs: ${stringify(mapToArray(this.pairs))}`);
+
+    // Listen to events of the Boltz client
+    this.boltz.on('transaction.confirmed', (transactionHash: string, outputAddress: string) => {
+      this.pendingSwaps.forEach((swap, id) => {
+        if (swap.address === outputAddress) {
+          this.emit('swap.update', id, `Transaction confirmed: ${transactionHash}`);
+        }
+      });
+    });
+
+    this.boltz.on('invoice.paid', (invoice: string) => {
+      this.pendingSwaps.forEach((swap, id) => {
+        if (swap.invoice === invoice) {
+          this.emit('swap.update', id, `Invoice paid: ${invoice}`);
+        }
+      });
+    });
   }
 
   // TODO: allow filters
@@ -116,7 +158,7 @@ class Service {
    * Gets all supported pairs and their conversion rates
    */
   public getPairs = () => {
-    return this.pairs;
+    return this.pairsObject;
   }
 
   /**
@@ -136,7 +178,7 @@ class Service {
   /**
    * Creates a new Swap from the chain to Lightning
    */
-  public createSwap = (pairId: string, orderSide: OrderSide, invoice: string, refundPublicKey: string) => {
+  public createSwap = async (pairId: string, orderSide: OrderSide, invoice: string, refundPublicKey: string) => {
     const { base, quote } = splitPairId(pairId);
 
     const pair = this.pairs.get(pairId);
@@ -145,7 +187,31 @@ class Service {
       throw Errors.PAIR_NOT_SUPPORTED(pairId);
     }
 
-    return this.boltz.createSwap(base, quote, orderSide, pair.rate, invoice, refundPublicKey, OutputType.COMPATIBILITY);
+    const swapResponse = await this.boltz.createSwap(base, quote, orderSide, pair.rate, invoice, refundPublicKey, OutputType.COMPATIBILITY);
+    await this.boltz.listenOnAddress(this.getChainCurrency(orderSide, base, quote), swapResponse.address);
+
+    const id = uuidv1();
+
+    this.pendingSwaps.set(id, {
+      invoice,
+      address: swapResponse.address,
+    });
+
+    return {
+      id,
+      ...swapResponse,
+    };
+  }
+
+  /**
+   * Get the currency on which the onchain transaction of a swap happens
+   */
+  private getChainCurrency = (orderSide: OrderSide, base: string, quote: string) => {
+    if (orderSide === OrderSide.BUY) {
+      return quote;
+    } else {
+      return base;
+    }
   }
 }
 

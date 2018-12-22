@@ -53,7 +53,7 @@ class Config {
     ];
   }
 
-  public init = (argv: Arguments) => {
+  public init = (argv: Arguments<any>) => {
     this.parseParameters(argv);
   }
 
