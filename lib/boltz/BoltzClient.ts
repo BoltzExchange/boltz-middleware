@@ -1,5 +1,5 @@
 import fs from 'fs';
-import grpc from 'grpc';
+import grpc, { ClientReadableStream } from 'grpc';
 import BaseClient from '../BaseClient';
 import Logger from '../Logger';
 import Errors from './Errors';
@@ -25,12 +25,24 @@ interface BoltzMethodIndex extends GrpcClient {
   [methodName: string]: Function;
 }
 
+interface BoltzClient {
+  on(event: 'transaction.confirmed', listener: (transactionHash: string, outputAddress: string) => void): this;
+  emit(event: 'transaction.confirmed', transactionHash: string, outputAddress: string): boolean;
+
+  on(even: 'invoice.paid', listener: (invoice: string) => void): this;
+  emit(event: 'invoice.paid', invoice: string): boolean;
+}
+
+// TODO: reconnect after stream emits error
 class BoltzClient extends BaseClient {
   private uri!: string;
   private credentials!: grpc.ChannelCredentials;
 
-  private lightning!: GrpcClient | BoltzMethodIndex;
+  private boltz!: GrpcClient | BoltzMethodIndex;
   private meta!: grpc.Metadata;
+
+  private transactionSubscription?: ClientReadableStream<boltzrpc.SubscribeTransactionsResponse>;
+  private invoicesSubscription?: ClientReadableStream<boltzrpc.SubscribeInvoicesResponse>;
 
   constructor(private logger: Logger, config: BoltzConfig) {
     super();
@@ -50,11 +62,11 @@ class BoltzClient extends BaseClient {
   }
 
   /**
-   * Connects to Boltz
+   * Connects to Boltz and subscribes to confirmed transactions and paid invoices afterwards
    */
   public connect = async () => {
     if (!this.isConnected()) {
-      this.lightning = new GrpcClient(this.uri, this.credentials);
+      this.boltz = new GrpcClient(this.uri, this.credentials);
 
       try {
         const getInfo = await this.getInfo();
@@ -65,9 +77,11 @@ class BoltzClient extends BaseClient {
         this.setClientStatus(ClientStatus.Connected);
         this.clearReconnectTimer();
 
+        this.subscribeTransactions();
+        this.subscribeInvoices();
       } catch (error) {
         this.logger.error(`Could not connect to Boltz: ${error.message}`);
-        this.logger.verbose(`Retrying in ${this.RECONNECT_INTERVAL} ms`);
+        this.logger.info(`Retrying in ${this.RECONNECT_INTERVAL} ms`);
 
         this.setClientStatus(ClientStatus.Disconnected);
         this.reconnectionTimer = setTimeout(this.connect, this.RECONNECT_INTERVAL);
@@ -81,12 +95,16 @@ class BoltzClient extends BaseClient {
   public disconnect = async () => {
     this.clearReconnectTimer();
 
-    this.lightning.close();
+    if (this.transactionSubscription) {
+      this.transactionSubscription.cancel();
+    }
+
+    this.boltz.close();
   }
 
   private unaryCall = <T, U>(methodName: string, params: T): Promise<U> => {
     return new Promise((resolve, reject) => {
-      (this.lightning as BoltzMethodIndex)[methodName](params, this.meta, (err: grpc.ServiceError, response: GrpcResponse) => {
+      (this.boltz as BoltzMethodIndex)[methodName](params, this.meta, (err: grpc.ServiceError, response: GrpcResponse) => {
         if (err) {
           reject(err);
         } else {
@@ -112,7 +130,7 @@ class BoltzClient extends BaseClient {
     request.setCurrency(currency);
     request.setTransactionHash(transactionHash);
 
-    return this.unaryCall<boltzrpc.GetTransactionRequest, boltzrpc.GetTransactionResponse>('getTransaction', request);
+    return this.unaryCall<boltzrpc.GetTransactionRequest, boltzrpc.GetTransactionResponse.AsObject>('getTransaction', request);
   }
 
   /**
@@ -124,7 +142,55 @@ class BoltzClient extends BaseClient {
     request.setCurrency(currency);
     request.setTransactionHex(transactionHex);
 
-    return this.unaryCall<boltzrpc.BroadcastTransactionRequest, boltzrpc.BroadcastTransactionResponse>('broadcastTransaction', request);
+    return this.unaryCall<boltzrpc.BroadcastTransactionRequest, boltzrpc.BroadcastTransactionResponse.AsObject>('broadcastTransaction', request);
+  }
+
+  /**
+   * Adds an entry to the list of addresses SubscribeTransactions listens to
+   */
+  public listenOnAddress = (currency: string, address: string) => {
+    const request = new boltzrpc.ListenOnAddressRequest();
+
+    request.setCurrency(currency);
+    request.setAddress(address);
+
+    return this.unaryCall<boltzrpc.ListenOnAddressRequest, boltzrpc.ListenOnAddressResponse.AsObject>('listenOnAddress', request);
+  }
+
+  /**
+   * Subscribes to a stream of confirmed transactions to addresses that were specified with "ListenOnAddress"
+   */
+  public subscribeTransactions = () => {
+    if (this.transactionSubscription) {
+      this.transactionSubscription.cancel();
+    }
+
+    this.transactionSubscription = this.boltz.subscribeTransactions(new boltzrpc.SubscribeTransactionsRequest(), this.meta)
+      .on('data', (response: boltzrpc.SubscribeTransactionsResponse) => {
+        this.logger.silly(`Found transaction to address ${response.getOutputAddress()} confirmed: ${response.getTransactionHash()}`);
+        this.emit('transaction.confirmed', response.getTransactionHash(), response.getOutputAddress());
+      })
+      .on('error', (error) => {
+        this.logger.error(`Transaction subscription errored: ${stringify(error)}`);
+      });
+  }
+
+  /**
+   * Subscribes to a stream of invoices paid by Boltz
+   */
+  public subscribeInvoices = () => {
+    if (this.invoicesSubscription) {
+      this.invoicesSubscription.cancel();
+    }
+
+    this.invoicesSubscription = this.boltz.subscribeInvoices(new boltzrpc.SubscribeInvoicesRequest(), this.meta)
+      .on('data', (response: boltzrpc.SubscribeInvoicesResponse) => {
+        this.logger.silly(`Paid invoice: ${response.getInvoice()}`);
+        this.emit('invoice.paid', response.getInvoice());
+      })
+      .on('error', (error) => {
+        this.logger.error(`Invoice subscription errored: ${stringify(error)}`);
+      });
   }
 
   /**
@@ -146,7 +212,7 @@ class BoltzClient extends BaseClient {
       request.setOutputType(outputType);
     }
 
-    return this.unaryCall<boltzrpc.CreateSwapRequest, boltzrpc.CreateSwapResponse>('createSwap', request);
+    return this.unaryCall<boltzrpc.CreateSwapRequest, boltzrpc.CreateSwapResponse.AsObject>('createSwap', request);
   }
 }
 

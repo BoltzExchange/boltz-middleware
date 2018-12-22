@@ -17,7 +17,7 @@ class BoltzMiddleware {
 
   private api: Api;
 
-  constructor(argv: Arguments) {
+  constructor(argv: Arguments<any>) {
     this.config = new Config();
     this.config.init(argv);
 

@@ -2,7 +2,18 @@ import { Request, Response } from 'express';
 import Service from '../service/Service';
 
 class Controller {
-  constructor(private service: Service) {}
+  // A map between the ids and HTTP responses of all pending swaps
+  private pendingSwaps = new Map<string, Response>();
+
+  constructor(private service: Service) {
+    this.service.on('swap.update', (id: string, message: string) => {
+      const response = this.pendingSwaps.get(id);
+
+      if (response) {
+        response.write(`data: ${JSON.stringify({ message })}\n\n`);
+      }
+    });
+  }
 
   public getPairs = async (_req: Request, res: Response) => {
     const response = this.service.getPairs();
@@ -18,7 +29,6 @@ class Controller {
 
       const response = await this.service.getTransaction(currency, transactionHash);
       this.successResponse(res, response);
-
     } catch (error) {
       this.writeErrorResponse(res, error);
     }
@@ -33,7 +43,6 @@ class Controller {
 
       const response = await this.service.broadcastTransaction(currency, transactionHex);
       this.successResponse(res, response);
-
     } catch (error) {
       this.writeErrorResponse(res, error);
     }
@@ -50,7 +59,24 @@ class Controller {
 
       const response = await this.service.createSwap(pairId, orderSide, invoice, refundPublicKey);
       this.swapCreatedResponse(res, response);
+    } catch (error) {
+      this.writeErrorResponse(res, error);
+    }
+  }
 
+  public swapStatus = (req: Request, res: Response) => {
+    try {
+      const { id } = this.validateBody(req.query, [
+        { name: 'id', type: 'string' },
+      ]);
+
+      res.writeHead(200, {
+        'Content-Type': 'text/event-stream',
+        'Cache-Control': 'no-cache',
+        Connection: 'keep-alive',
+      });
+
+      this.pendingSwaps.set(id, res);
     } catch (error) {
       this.writeErrorResponse(res, error);
     }

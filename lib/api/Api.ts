@@ -15,6 +15,7 @@ class Api {
 
   constructor(private logger: Logger, private config: ApiConfig, service: Service) {
     this.app = express();
+
     this.app.use(cors());
     this.app.use(express.json());
 
@@ -35,6 +36,8 @@ class Api {
     this.app.route('/broadcasttransaction').post(controller.broadcastTransaction);
 
     this.app.route('/createswap').post(controller.createSwap);
+
+    this.app.route('/swapstatus').get(controller.swapStatus);
   }
 }
 
