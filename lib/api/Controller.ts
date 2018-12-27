@@ -1,15 +1,18 @@
 import { Request, Response } from 'express';
 import Service from '../service/Service';
+import Logger from '../Logger';
+import { stringify } from '../Utils';
 
 class Controller {
   // A map between the ids and HTTP responses of all pending swaps
   private pendingSwaps = new Map<string, Response>();
 
-  constructor(private service: Service) {
+  constructor(private logger: Logger, private service: Service) {
     this.service.on('swap.update', (id: string, message: string) => {
       const response = this.pendingSwaps.get(id);
 
       if (response) {
+        this.logger.debug(`Swap ${id} update: ${message}`);
         response.write(`data: ${JSON.stringify({ message })}\n\n`);
       }
     });
@@ -58,6 +61,10 @@ class Controller {
       ]);
 
       const response = await this.service.createSwap(pairId, orderSide, invoice, refundPublicKey);
+
+      this.logger.verbose(`Created new swap with id: ${response.id}`);
+      this.logger.silly(`Swap ${response.id}: ${stringify(response)}`);
+
       this.swapCreatedResponse(res, response);
     } catch (error) {
       this.writeErrorResponse(res, error);

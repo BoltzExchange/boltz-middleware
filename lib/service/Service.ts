@@ -1,5 +1,5 @@
 import { EventEmitter } from 'events';
-import uuidv1 from 'uuid/v1';
+import uuidv4 from 'uuid/v4';
 import Logger from '../Logger';
 import Database from '../db/Database';
 import BoltzClient from '../boltz/BoltzClient';
@@ -190,7 +190,7 @@ class Service extends EventEmitter {
     const swapResponse = await this.boltz.createSwap(base, quote, orderSide, pair.rate, invoice, refundPublicKey, OutputType.COMPATIBILITY);
     await this.boltz.listenOnAddress(this.getChainCurrency(orderSide, base, quote), swapResponse.address);
 
-    const id = uuidv1();
+    const id = uuidv4();
 
     this.pendingSwaps.set(id, {
       invoice,
