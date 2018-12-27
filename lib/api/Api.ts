@@ -19,7 +19,7 @@ class Api {
     this.app.use(cors());
     this.app.use(express.json());
 
-    const controller = new Controller(service);
+    const controller = new Controller(logger, service);
     this.registerRoutes(controller);
   }
 
