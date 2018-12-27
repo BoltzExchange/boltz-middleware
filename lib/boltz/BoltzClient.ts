@@ -33,7 +33,6 @@ interface BoltzClient {
   emit(event: 'invoice.paid', invoice: string): boolean;
 }
 
-// TODO: reconnect after stream emits error
 class BoltzClient extends BaseClient {
   private uri!: string;
   private credentials!: grpc.ChannelCredentials;
@@ -43,6 +42,8 @@ class BoltzClient extends BaseClient {
 
   private transactionSubscription?: ClientReadableStream<boltzrpc.SubscribeTransactionsResponse>;
   private invoicesSubscription?: ClientReadableStream<boltzrpc.SubscribeInvoicesResponse>;
+
+  private isReconnecting = false;
 
   constructor(private logger: Logger, config: BoltzConfig) {
     super();
@@ -68,24 +69,7 @@ class BoltzClient extends BaseClient {
     if (!this.isConnected()) {
       this.boltz = new GrpcClient(this.uri, this.credentials);
 
-      try {
-        const getInfo = await this.getInfo();
-
-        this.logger.info('Connected to Boltz');
-        this.logger.verbose(`Boltz status: ${stringify(getInfo)}`);
-
-        this.setClientStatus(ClientStatus.Connected);
-        this.clearReconnectTimer();
-
-        this.subscribeTransactions();
-        this.subscribeInvoices();
-      } catch (error) {
-        this.logger.error(`Could not connect to Boltz: ${error.message}`);
-        this.logger.info(`Retrying in ${this.RECONNECT_INTERVAL} ms`);
-
-        this.setClientStatus(ClientStatus.Disconnected);
-        this.reconnectionTimer = setTimeout(this.connect, this.RECONNECT_INTERVAL);
-      }
+      await this.startReconnectTimer();
     }
   }
 
@@ -100,18 +84,6 @@ class BoltzClient extends BaseClient {
     }
 
     this.boltz.close();
-  }
-
-  private unaryCall = <T, U>(methodName: string, params: T): Promise<U> => {
-    return new Promise((resolve, reject) => {
-      (this.boltz as BoltzMethodIndex)[methodName](params, this.meta, (err: grpc.ServiceError, response: GrpcResponse) => {
-        if (err) {
-          reject(err);
-        } else {
-          resolve(response.toObject());
-        }
-      });
-    });
   }
 
   /**
@@ -170,8 +142,9 @@ class BoltzClient extends BaseClient {
         this.logger.silly(`Found transaction to address ${response.getOutputAddress()} confirmed: ${response.getTransactionHash()}`);
         this.emit('transaction.confirmed', response.getTransactionHash(), response.getOutputAddress());
       })
-      .on('error', (error) => {
+      .on('error', async (error) => {
         this.logger.error(`Transaction subscription errored: ${stringify(error)}`);
+        await this.startReconnectTimer();
       });
   }
 
@@ -188,8 +161,9 @@ class BoltzClient extends BaseClient {
         this.logger.silly(`Paid invoice: ${response.getInvoice()}`);
         this.emit('invoice.paid', response.getInvoice());
       })
-      .on('error', (error) => {
+      .on('error', async (error) => {
         this.logger.error(`Invoice subscription errored: ${stringify(error)}`);
+        await this.startReconnectTimer();
       });
   }
 
@@ -213,6 +187,49 @@ class BoltzClient extends BaseClient {
     }
 
     return this.unaryCall<boltzrpc.CreateSwapRequest, boltzrpc.CreateSwapResponse.AsObject>('createSwap', request);
+  }
+
+  private startReconnectTimer = async () => {
+    if (!this.isReconnecting) {
+      this.isReconnecting = true;
+
+      await this.reconnect();
+    }
+  }
+
+  private reconnect = async () => {
+    try {
+      const getInfo = await this.getInfo();
+
+      this.logger.info('Connected to Boltz');
+      this.logger.verbose(`Boltz status: ${stringify(getInfo)}`);
+
+      this.setClientStatus(ClientStatus.Connected);
+      this.clearReconnectTimer();
+
+      this.isReconnecting = false;
+
+      this.subscribeTransactions();
+      this.subscribeInvoices();
+    } catch (error) {
+      this.logger.error(`Could not connect to Boltz: ${error.message}`);
+      this.logger.verbose(`Retrying in ${this.RECONNECT_INTERVAL} ms`);
+
+      this.setClientStatus(ClientStatus.Disconnected);
+      this.reconnectionTimer = setTimeout(this.reconnect, this.RECONNECT_INTERVAL);
+    }
+  }
+
+  private unaryCall = <T, U>(methodName: string, params: T): Promise<U> => {
+    return new Promise((resolve, reject) => {
+      (this.boltz as BoltzMethodIndex)[methodName](params, this.meta, (err: grpc.ServiceError, response: GrpcResponse) => {
+        if (err) {
+          reject(err);
+        } else {
+          resolve(response.toObject());
+        }
+      });
+    });
   }
 }
 
