@@ -8,6 +8,8 @@ import Service from '../service/Service';
 type ApiConfig = {
   host: string;
   port: number;
+
+  interval: number;
 };
 
 class Api {

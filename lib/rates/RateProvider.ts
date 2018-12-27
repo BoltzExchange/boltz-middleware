@@ -4,42 +4,54 @@ import { PairInstance } from 'lib/consts/Database';
 import { getPairId, stringify, mapToArray } from '../Utils';
 
 // TODO: add unit tests
+// TODO: make rate update interval configurable
 class RateProvider {
-  private cryptoCompare: CryptoCompare;
+  // A map between pair ids and their rates
+  public rates = new Map<string, number>();
 
-  constructor(private logger: Logger) {
+  // A map between quote and their base assets
+  private baseAssetsMap = new Map<string, string[]>();
+
+  private cryptoCompare = new CryptoCompare();
+
+  constructor(private logger: Logger, private rateUpdateInterval: number) {
     this.cryptoCompare = new CryptoCompare();
   }
 
   /**
    * Gets a map of of rates for the provided pairs
    */
-  public getRates = async (pairs: PairInstance[]) => {
-    // A map between the quote and their base assets
-    const baseAssetsMap = new Map<string, string[]>();
-
+  public init = async (pairs: PairInstance[]) => {
     pairs.forEach((pair) => {
-      const baseAssets = baseAssetsMap.get(pair.quote);
+      const baseAssets = this.baseAssetsMap.get(pair.quote);
 
       if (baseAssets) {
         baseAssets.push(pair.base);
       } else {
-        baseAssetsMap.set(pair.quote, [pair.base]);
+        this.baseAssetsMap.set(pair.quote, [pair.base]);
       }
     });
 
-    this.logger.silly(`Prepared data for requests to CryptoCompare: ${stringify(mapToArray(baseAssetsMap))}`);
+    this.logger.silly(`Prepared data for requests to CryptoCompare: ${stringify(mapToArray(this.baseAssetsMap))}`);
 
-    const rates = new Map<string, number>();
+    await this.updateRates();
 
+    this.logger.silly(`Updating rates every ${this.rateUpdateInterval} minutes`);
+
+    setInterval(async () => {
+      await this.updateRates();
+    }, this.rateUpdateInterval * 60 * 1000);
+  }
+
+  private updateRates = async () => {
     const promises: Promise<any>[] = [];
 
-    baseAssetsMap.forEach((baseAssets, quoteAsset) => {
+    this.baseAssetsMap.forEach((baseAssets, quoteAsset) => {
       promises.push(new Promise(async (resolve) => {
         const baseAssetsRates = await this.cryptoCompare.getPriceMulti(baseAssets, [quoteAsset]);
 
         baseAssets.forEach((baseAsset) => {
-          rates.set(getPairId({ base: baseAsset, quote: quoteAsset }), baseAssetsRates[baseAsset][quoteAsset]);
+          this.rates.set(getPairId({ base: baseAsset, quote: quoteAsset }), baseAssetsRates[baseAsset][quoteAsset]);
         });
 
         resolve();
@@ -48,10 +60,9 @@ class RateProvider {
 
     await Promise.all(promises);
 
-    this.logger.debug(`Got updated rates: ${stringify(mapToArray(rates))}`);
-
-    return rates;
+    this.logger.debug(`Updated rates: ${stringify(mapToArray(this.rates))}`);
   }
+
 }
 
 export default RateProvider;
