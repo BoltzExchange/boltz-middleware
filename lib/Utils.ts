@@ -22,29 +22,42 @@ export const splitPairId = (pairId: string): { quote: string, base: string } => 
 };
 
 /**
- * Gets the current date in the LocaleString format.
+ * Get the current date in the LocaleString format.
  */
 export const getTsString = (): string => (new Date()).toLocaleString('en-US', { hour12: false });
 
 /**
- * Concats an error code and its prefix
+ * Concat an error code and its prefix
  */
 export const concatErrorCode = (prefix: number, code: number) => {
   return `${prefix}.${code}`;
 };
 
 /**
- * Stringifies any object or array
+ * Stringify any object or array
  */
 export const stringify = (object: any) => {
   return JSON.stringify(object, undefined, 2);
 };
 
 /**
- * Turns a map into an array
+ * Turn a map into an array
  */
 export const mapToArray = (map: Map<any, any>) => {
   return Array.from(map.entries());
+};
+
+/**
+ * Turn a map into an object
+ */
+export const mapToObject = (map: Map<any, any>) => {
+  const object: any = {};
+
+  map.forEach((value, index) => {
+    object[index] = value;
+  });
+
+  return object;
 };
 
 /**
@@ -56,7 +69,7 @@ export const isObject = (val: any): boolean => {
 
 /**
  * Recursively merge properties from different sources into a target object, overriding any
- * existing properties.
+ * existing properties
  *
  * @param target The destination object to merge into.
  * @param sources The sources objects to copy from.

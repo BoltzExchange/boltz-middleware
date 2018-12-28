@@ -33,6 +33,10 @@ const { argv } = require('yargs').options({
     describe: 'Port of the boltz-middleware REST API',
     type: 'number',
   },
+  'api.interval': {
+    descibe: 'The interval at which your rates should be updated in minutes',
+    type: 'string',
+  },
   'boltz.host': {
     describe: 'Host of the Boltz gRPC interface',
     type: 'string',

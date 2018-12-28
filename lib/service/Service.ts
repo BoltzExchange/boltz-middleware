@@ -7,7 +7,7 @@ import { OrderSide, OutputType, CurrencyInfo } from '../proto/boltzrpc_pb';
 import PairRepository from './PairRepository';
 import RateProvider from '../rates/RateProvider';
 import { PairInstance, PairFactory } from '../consts/Database';
-import { splitPairId, stringify, mapToArray } from '../Utils';
+import { splitPairId, stringify, mapToArray, mapToObject } from '../Utils';
 import Errors from './Errors';
 
 type PairConfig = {
@@ -19,8 +19,6 @@ type Pair = {
   id: string;
   base: string;
   quote: string;
-
-  rate: number;
 };
 
 type PendingSwap = {
@@ -43,14 +41,10 @@ class Service extends EventEmitter {
 
   private pairs = new Map<string, Pair>();
 
-  // This object is needed because a stringifyied Map is an empty object
-  // tslint:disable-next-line:no-null-keyword
-  private pairsObject = {};
-
-  constructor(private logger: Logger, db: Database, private boltz: BoltzClient) {
+  constructor(private logger: Logger, db: Database, private boltz: BoltzClient, rateInterval: number) {
     super();
 
-    this.rateProvider = new RateProvider(this.logger);
+    this.rateProvider = new RateProvider(this.logger, rateInterval);
     this.pairRepository = new PairRepository(db.models);
   }
 
@@ -110,24 +104,19 @@ class Service extends EventEmitter {
       }
     };
 
-    const rates = await this.rateProvider.getRates(dbPairs);
+    await this.rateProvider.init(dbPairs);
 
     dbPairs.forEach((pair) => {
       try {
         verifyBackendSupport(pair.base);
         verifyBackendSupport(pair.quote);
 
-        const rate = rates.get(pair.id)!;
-
         this.pairs.set(pair.id, {
           // The values have to be set manually to avoid "TypeError: Converting circular structure to JSON" errors
-          rate,
           id: pair.id,
           base: pair.base,
           quote: pair.quote,
         });
-
-        this.pairsObject[pair.id] = rate;
       } catch (error) {
         this.logger.warn(`Could not initialise pair ${pair.id}: ${error.message}`);
       }
@@ -158,7 +147,7 @@ class Service extends EventEmitter {
    * Gets all supported pairs and their conversion rates
    */
   public getPairs = () => {
-    return this.pairsObject;
+    return mapToObject(this.rateProvider.rates);
   }
 
   /**
@@ -182,12 +171,13 @@ class Service extends EventEmitter {
     const { base, quote } = splitPairId(pairId);
 
     const pair = this.pairs.get(pairId);
+    const rate = this.rateProvider.rates.get(pairId);
 
-    if (pair === undefined) {
+    if (!pair || !rate) {
       throw Errors.PAIR_NOT_SUPPORTED(pairId);
     }
 
-    const swapResponse = await this.boltz.createSwap(base, quote, orderSide, pair.rate, invoice, refundPublicKey, OutputType.COMPATIBILITY);
+    const swapResponse = await this.boltz.createSwap(base, quote, orderSide, rate, invoice, refundPublicKey, OutputType.COMPATIBILITY);
     await this.boltz.listenOnAddress(this.getChainCurrency(orderSide, base, quote), swapResponse.address);
 
     const id = uuidv4();
