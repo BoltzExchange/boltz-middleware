@@ -2,6 +2,23 @@ import os from 'os';
 import path from 'path';
 import { PairFactory } from './consts/Database';
 
+const idPossibilities = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+
+/**
+ * Generate an id
+ *
+ * @param length how many characters the id should have
+ */
+export const generateId = (length: number) => {
+  let id = '';
+
+  for (let i = 0; i < length; i += 1) {
+    id += idPossibilities.charAt(Math.floor(Math.random() * idPossibilities.length));
+  }
+
+  return id;
+};
+
 /**
  * Get the pair id of a pair
  */

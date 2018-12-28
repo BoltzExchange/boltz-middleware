@@ -7,7 +7,7 @@ import { OrderSide, OutputType, CurrencyInfo } from '../proto/boltzrpc_pb';
 import PairRepository from './PairRepository';
 import RateProvider from '../rates/RateProvider';
 import { PairInstance, PairFactory } from '../consts/Database';
-import { splitPairId, stringify, mapToArray, mapToObject } from '../Utils';
+import { splitPairId, stringify, mapToArray, generateId, mapToObject } from '../Utils';
 import Errors from './Errors';
 
 type PairConfig = {
@@ -180,7 +180,7 @@ class Service extends EventEmitter {
     const swapResponse = await this.boltz.createSwap(base, quote, orderSide, rate, invoice, refundPublicKey, OutputType.COMPATIBILITY);
     await this.boltz.listenOnAddress(this.getChainCurrency(orderSide, base, quote), swapResponse.address);
 
-    const id = uuidv4();
+    const id = generateId(6);
 
     this.pendingSwaps.set(id, {
       invoice,
