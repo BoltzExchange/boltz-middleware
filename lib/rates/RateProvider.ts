@@ -1,7 +1,7 @@
 import Logger from '../Logger';
 import CryptoCompare from './CryptoCompare';
 import { PairInstance } from 'lib/consts/Database';
-import { getPairId, stringify, mapToArray } from '../Utils';
+import { getPairId, stringify, mapToObject } from '../Utils';
 
 // TODO: add unit tests
 // TODO: make rate update interval configurable
@@ -32,7 +32,7 @@ class RateProvider {
       }
     });
 
-    this.logger.silly(`Prepared data for requests to CryptoCompare: ${stringify(mapToArray(this.baseAssetsMap))}`);
+    this.logger.silly(`Prepared data for requests to CryptoCompare: ${stringify(mapToObject(this.baseAssetsMap))}`);
 
     await this.updateRates();
 
@@ -60,7 +60,7 @@ class RateProvider {
 
     await Promise.all(promises);
 
-    this.logger.debug(`Updated rates: ${stringify(mapToArray(this.rates))}`);
+    this.logger.debug(`Updated rates: ${stringify(mapToObject(this.rates))}`);
   }
 
 }

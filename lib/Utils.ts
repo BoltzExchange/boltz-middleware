@@ -58,13 +58,6 @@ export const stringify = (object: any) => {
 };
 
 /**
- * Turn a map into an array
- */
-export const mapToArray = (map: Map<any, any>) => {
-  return Array.from(map.entries());
-};
-
-/**
  * Turn a map into an object
  */
 export const mapToObject = (map: Map<any, any>) => {

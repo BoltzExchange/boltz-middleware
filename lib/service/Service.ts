@@ -1,5 +1,4 @@
 import { EventEmitter } from 'events';
-import uuidv4 from 'uuid/v4';
 import Logger from '../Logger';
 import Database from '../db/Database';
 import BoltzClient from '../boltz/BoltzClient';
@@ -7,7 +6,7 @@ import { OrderSide, OutputType, CurrencyInfo } from '../proto/boltzrpc_pb';
 import PairRepository from './PairRepository';
 import RateProvider from '../rates/RateProvider';
 import { PairInstance, PairFactory } from '../consts/Database';
-import { splitPairId, stringify, mapToArray, generateId, mapToObject } from '../Utils';
+import { splitPairId, stringify, generateId, mapToObject } from '../Utils';
 import Errors from './Errors';
 
 type PairConfig = {
@@ -122,7 +121,7 @@ class Service extends EventEmitter {
       }
     });
 
-    this.logger.verbose(`Initialised ${this.pairs.size} pairs: ${stringify(mapToArray(this.pairs))}`);
+    this.logger.verbose(`Initialised ${this.pairs.size} pairs: ${stringify(mapToObject(this.pairs))}`);
 
     // Listen to events of the Boltz client
     this.boltz.on('transaction.confirmed', (transactionHash: string, outputAddress: string) => {
