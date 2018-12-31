@@ -4,7 +4,6 @@ import { PairInstance } from 'lib/consts/Database';
 import { getPairId, stringify, mapToArray } from '../Utils';
 
 // TODO: add unit tests
-// TODO: make rate update interval configurable
 class RateProvider {
   // A map between pair ids and their rates
   public rates = new Map<string, number>();

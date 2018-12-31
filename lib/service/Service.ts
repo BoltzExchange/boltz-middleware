@@ -31,7 +31,6 @@ interface Service {
   emit(event: 'swap.update', id: string, message: string): boolean;
 }
 
-// TODO: update rates of pairs regularly
 class Service extends EventEmitter {
   // A map between the ids and details of all pending swaps
   private pendingSwaps = new Map<string, PendingSwap>();
