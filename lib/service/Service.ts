@@ -8,6 +8,7 @@ import RateProvider from '../rates/RateProvider';
 import { PairInstance, PairFactory } from '../consts/Database';
 import { splitPairId, stringify, generateId, mapToObject } from '../Utils';
 import Errors from './Errors';
+import { encodeBip21 } from './PaymentRequestUtils';
 
 type PairConfig = {
   base: string;
@@ -177,8 +178,11 @@ class Service extends EventEmitter {
 
     const side = this.getOrderSide(orderSide);
 
+    const chainCurrency = this.getChainCurrency(side, base, quote);
+    const lightningCurrency = this.getLightningCurrency(side, base, quote);
+
     const swapResponse = await this.boltz.createSwap(base, quote, side, rate, invoice, refundPublicKey, OutputType.COMPATIBILITY);
-    await this.boltz.listenOnAddress(this.getChainCurrency(side, base, quote), swapResponse.address);
+    await this.boltz.listenOnAddress(chainCurrency, swapResponse.address);
 
     const id = generateId(6);
 
@@ -189,6 +193,12 @@ class Service extends EventEmitter {
 
     return {
       id,
+      bip21: encodeBip21(
+        chainCurrency,
+        swapResponse.address,
+        swapResponse.expectedAmount,
+        `Submarine Swap to ${lightningCurrency}`,
+      ),
       ...swapResponse,
     };
   }
@@ -202,6 +212,13 @@ class Service extends EventEmitter {
     } else {
       return base;
     }
+  }
+
+  /**
+   * Get the currency on which the Lightning transaction happens
+   */
+  private getLightningCurrency = (orderSide: OrderSide, base: string, quote: string) => {
+    return this.getChainCurrency(orderSide === OrderSide.BUY ? OrderSide.SELL : OrderSide.BUY, base, quote);
   }
 
   /**
