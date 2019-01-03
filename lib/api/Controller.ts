@@ -55,7 +55,7 @@ class Controller {
     try {
       const { pairId, orderSide, invoice, refundPublicKey } = this.validateBody(req.body, [
         { name: 'pairId', type: 'string' },
-        { name: 'orderSide', type: 'number' },
+        { name: 'orderSide', type: 'string' },
         { name: 'invoice', type: 'string' },
         { name: 'refundPublicKey', type: 'string' },
       ]);
@@ -133,6 +133,8 @@ class Controller {
   }
 
   private invalidArgumentsResponse = (res: Response, error: string) => {
+    this.logger.warn(`Request failed: ${error}`);
+
     this.setContentTypeJson(res);
     res.status(400).json({ error });
   }
