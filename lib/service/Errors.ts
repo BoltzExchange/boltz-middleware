@@ -11,4 +11,8 @@ export default {
     message: `pair is not supported: ${pairId}`,
     code: concatErrorCode(ErrorCodePrefix.Service, 1),
   }),
+  ORDER_SIDE_NOT_SUPPORTED: (orderSide: string) => ({
+    message: `order side not supported: ${orderSide}`,
+    code: concatErrorCode(ErrorCodePrefix.Service, 2),
+  }),
 };

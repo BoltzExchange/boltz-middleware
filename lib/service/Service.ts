@@ -165,7 +165,7 @@ class Service extends EventEmitter {
   /**
    * Creates a new Swap from the chain to Lightning
    */
-  public createSwap = async (pairId: string, orderSide: OrderSide, invoice: string, refundPublicKey: string) => {
+  public createSwap = async (pairId: string, orderSide: string, invoice: string, refundPublicKey: string) => {
     const { base, quote } = splitPairId(pairId);
 
     const pair = this.pairs.get(pairId);
@@ -175,8 +175,10 @@ class Service extends EventEmitter {
       throw Errors.PAIR_NOT_SUPPORTED(pairId);
     }
 
-    const swapResponse = await this.boltz.createSwap(base, quote, orderSide, rate, invoice, refundPublicKey, OutputType.COMPATIBILITY);
-    await this.boltz.listenOnAddress(this.getChainCurrency(orderSide, base, quote), swapResponse.address);
+    const side = this.getOrderSide(orderSide);
+
+    const swapResponse = await this.boltz.createSwap(base, quote, side, rate, invoice, refundPublicKey, OutputType.COMPATIBILITY);
+    await this.boltz.listenOnAddress(this.getChainCurrency(side, base, quote), swapResponse.address);
 
     const id = generateId(6);
 
@@ -192,13 +194,25 @@ class Service extends EventEmitter {
   }
 
   /**
-   * Get the currency on which the onchain transaction of a swap happens
+   * Gets the currency on which the onchain transaction of a swap happens
    */
   private getChainCurrency = (orderSide: OrderSide, base: string, quote: string) => {
     if (orderSide === OrderSide.BUY) {
       return quote;
     } else {
       return base;
+    }
+  }
+
+  /**
+   * Gets the corresponding OrderSide enum of a string
+   */
+  private getOrderSide = (orderSide: string) => {
+    switch (orderSide.toLowerCase()) {
+      case 'buy': return OrderSide.BUY;
+      case 'sell': return OrderSide.SELL;
+
+      default: throw Errors.ORDER_SIDE_NOT_SUPPORTED(orderSide);
     }
   }
 }
