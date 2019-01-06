@@ -4,7 +4,6 @@ import Logger from '../Logger';
 import Controller from './Controller';
 import Service from '../service/Service';
 
-// TODO: SSL certificate
 type ApiConfig = {
   host: string;
   port: number;

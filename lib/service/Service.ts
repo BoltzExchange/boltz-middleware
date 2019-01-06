@@ -141,7 +141,6 @@ class Service extends EventEmitter {
     });
   }
 
-  // TODO: allow filters
   /**
    * Gets all supported pairs and their conversion rates
    */

@@ -3,7 +3,6 @@ import CryptoCompare from './CryptoCompare';
 import { PairInstance } from 'lib/consts/Database';
 import { getPairId, stringify, mapToObject } from '../Utils';
 
-// TODO: add unit tests
 class RateProvider {
   // A map between pair ids and their rates
   public rates = new Map<string, number>();
