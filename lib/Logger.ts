@@ -6,7 +6,6 @@ class Logger {
 
   public static readonly disabledLogger = new Logger('', '', true);
 
-  // TODO: 'trace' level instead of 'silly'
   constructor(filename: string, level: string, private disabled = false) {
     if (disabled) {
       return;
