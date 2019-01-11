@@ -1,14 +1,14 @@
 import { EventEmitter } from 'events';
+import Errors from './Errors';
 import Logger from '../Logger';
 import Database from '../db/Database';
-import BoltzClient from '../boltz/BoltzClient';
-import { OrderSide, OutputType, CurrencyInfo } from '../proto/boltzrpc_pb';
 import PairRepository from './PairRepository';
+import BoltzClient from '../boltz/BoltzClient';
 import RateProvider from '../rates/RateProvider';
-import { PairInstance, PairFactory } from '../consts/Database';
-import { splitPairId, stringify, generateId, mapToObject } from '../Utils';
-import Errors from './Errors';
 import { encodeBip21 } from './PaymentRequestUtils';
+import { PairInstance, PairFactory } from '../consts/Database';
+import { OrderSide, OutputType, CurrencyInfo } from '../proto/boltzrpc_pb';
+import { splitPairId, stringify, generateId, mapToObject } from '../Utils';
 
 type PairConfig = {
   base: string;
@@ -23,7 +23,12 @@ type Pair = {
 
 type PendingSwap = {
   invoice: string;
-  address: string;
+  lockupAddress: string;
+};
+
+type PendingReverseSwap = {
+  invoice: string;
+  transactionHash: string;
 };
 
 interface Service {
@@ -34,6 +39,9 @@ interface Service {
 class Service extends EventEmitter {
   // A map between the ids and details of all pending swaps
   private pendingSwaps = new Map<string, PendingSwap>();
+
+  // A map between the ids and detials of all pending reverse swaps
+  private pendingReverseSwaps = new Map<string, PendingReverseSwap>();
 
   private rateProvider: RateProvider;
   private pairRepository: PairRepository;
@@ -123,11 +131,20 @@ class Service extends EventEmitter {
 
     this.logger.verbose(`Initialised ${this.pairs.size} pairs: ${stringify(mapToObject(this.pairs))}`);
 
+    const emitTransactionConfirmed = (id: string, transactionHash: string) =>
+      this.emit('swap.update', id, `Transaction confirmed: ${transactionHash}`);
+
     // Listen to events of the Boltz client
     this.boltz.on('transaction.confirmed', (transactionHash: string, outputAddress: string) => {
       this.pendingSwaps.forEach((swap, id) => {
-        if (swap.address === outputAddress) {
-          this.emit('swap.update', id, `Transaction confirmed: ${transactionHash}`);
+        if (swap.lockupAddress === outputAddress) {
+          emitTransactionConfirmed(id, transactionHash);
+        }
+      });
+
+      this.pendingReverseSwaps.forEach((swap, id) => {
+        if (swap.transactionHash === transactionHash) {
+          emitTransactionConfirmed(id, transactionHash);
         }
       });
     });
@@ -136,6 +153,14 @@ class Service extends EventEmitter {
       this.pendingSwaps.forEach((swap, id) => {
         if (swap.invoice === invoice) {
           this.emit('swap.update', id, `Invoice paid: ${invoice}`);
+        }
+      });
+    });
+
+    this.boltz.on('invoice.settled', (invoice: string) => {
+      this.pendingReverseSwaps.forEach((swap, id) => {
+        if (swap.invoice === invoice) {
+          this.emit('swap.update', id, `Invoice settled: ${invoice}`);
         }
       });
     });
@@ -166,6 +191,80 @@ class Service extends EventEmitter {
    * Creates a new Swap from the chain to Lightning
    */
   public createSwap = async (pairId: string, orderSide: string, invoice: string, refundPublicKey: string) => {
+    const { base, quote, rate } = this.getPair(pairId);
+
+    const side = this.getOrderSide(orderSide);
+
+    const chainCurrency = this.getChainCurrency(side, base, quote);
+    const lightningCurrency = this.getLightningCurrency(side, base, quote);
+
+    const {
+      address,
+      redeemScript,
+      expectedAmount,
+      timeoutBlockHeight,
+    } = await this.boltz.createSwap(base, quote, side, rate, invoice, refundPublicKey, OutputType.COMPATIBILITY);
+    await this.boltz.listenOnAddress(chainCurrency, address);
+
+    const id = generateId(6);
+
+    this.pendingSwaps.set(id, {
+      invoice,
+      lockupAddress: address,
+    });
+
+    return {
+      id,
+      address,
+      redeemScript,
+      expectedAmount,
+      timeoutBlockHeight,
+      bip21: encodeBip21(
+        chainCurrency,
+        address,
+        expectedAmount,
+        `Submarine Swap to ${lightningCurrency}`,
+      ),
+    };
+  }
+
+  /**
+   * Creates a new reverse Swap from Lightning to the chain
+   */
+  public createReverseSwap = async (pairId: string, orderSide: string, claimPublicKey: string, amount: number) => {
+    const { base, quote, rate } = this.getPair(pairId);
+
+    const side = this.getOrderSide(orderSide);
+
+    const {
+      invoice,
+      redeemScript,
+      lockupAddress,
+      lockupTransaction,
+      lockupTransactionHash,
+    } = await this.boltz.createReverseSwap(base, quote, side, rate, claimPublicKey, amount);
+    await this.boltz.listenOnAddress(this.getChainCurrency(side, base, quote), lockupAddress);
+
+    const id = generateId(6);
+
+    this.pendingReverseSwaps.set(id, {
+      invoice,
+      transactionHash: lockupTransactionHash,
+    });
+
+    return {
+      id,
+      invoice,
+      redeemScript,
+      lockupTransaction,
+      lockupTransactionHash,
+    };
+  }
+
+  /**
+   * Gets the base and quote asset and the rate of a currency
+   */
+  private getPair = (pairId: string) => {
     const { base, quote } = splitPairId(pairId);
 
     const pair = this.pairs.get(pairId);
@@ -175,35 +274,15 @@ class Service extends EventEmitter {
       throw Errors.PAIR_NOT_SUPPORTED(pairId);
     }
 
-    const side = this.getOrderSide(orderSide);
-
-    const chainCurrency = this.getChainCurrency(side, base, quote);
-    const lightningCurrency = this.getLightningCurrency(side, base, quote);
-
-    const swapResponse = await this.boltz.createSwap(base, quote, side, rate, invoice, refundPublicKey, OutputType.COMPATIBILITY);
-    await this.boltz.listenOnAddress(chainCurrency, swapResponse.address);
-
-    const id = generateId(6);
-
-    this.pendingSwaps.set(id, {
-      invoice,
-      address: swapResponse.address,
-    });
-
     return {
-      id,
-      bip21: encodeBip21(
-        chainCurrency,
-        swapResponse.address,
-        swapResponse.expectedAmount,
-        `Submarine Swap to ${lightningCurrency}`,
-      ),
-      ...swapResponse,
+      base,
+      quote,
+      rate,
     };
   }
 
   /**
-   * Gets the currency on which the onchain transaction of a swap happens
+   * Get the currency on which the onchain transaction of a swap happens
    */
   private getChainCurrency = (orderSide: OrderSide, base: string, quote: string) => {
     if (orderSide === OrderSide.BUY) {
