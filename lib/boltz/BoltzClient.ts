@@ -1,12 +1,12 @@
 import fs from 'fs';
 import grpc, { ClientReadableStream } from 'grpc';
-import BaseClient from '../BaseClient';
-import Logger from '../Logger';
 import Errors from './Errors';
-import * as boltzrpc from '../proto/boltzrpc_pb';
-import { BoltzClient as GrpcClient } from '../proto/boltzrpc_grpc_pb';
-import { ClientStatus } from '../consts/ClientStatus';
+import Logger from '../Logger';
 import { stringify } from '../Utils';
+import BaseClient from '../BaseClient';
+import * as boltzrpc from '../proto/boltzrpc_pb';
+import { ClientStatus } from '../consts/ClientStatus';
+import { BoltzClient as GrpcClient } from '../proto/boltzrpc_grpc_pb';
 
 /**
  * The configurable options of the Boltz client
@@ -31,6 +31,9 @@ interface BoltzClient {
 
   on(even: 'invoice.paid', listener: (invoice: string) => void): this;
   emit(event: 'invoice.paid', invoice: string): boolean;
+
+  on(even: 'invoice.settled', listener: (invoice: string) => void): this;
+  emit(event: 'invoice.settled', invoice: string): boolean;
 }
 
 class BoltzClient extends BaseClient {
@@ -158,8 +161,15 @@ class BoltzClient extends BaseClient {
 
     this.invoicesSubscription = this.boltz.subscribeInvoices(new boltzrpc.SubscribeInvoicesRequest(), this.meta)
       .on('data', (response: boltzrpc.SubscribeInvoicesResponse) => {
-        this.logger.silly(`Paid invoice: ${response.getInvoice()}`);
-        this.emit('invoice.paid', response.getInvoice());
+        const invoice = response.getInvoice();
+
+        if (response.getEvent() === boltzrpc.InvoiceEvent.PAID) {
+          this.logger.silly(`Invoice paid: ${invoice}`);
+          this.emit('invoice.paid', invoice);
+        } else {
+          this.logger.silly(`Invoice settled: ${invoice}`);
+          this.emit('invoice.settled', invoice);
+        }
       })
       .on('error', async (error) => {
         this.logger.error(`Invoice subscription errored: ${stringify(error)}`);
@@ -187,6 +197,24 @@ class BoltzClient extends BaseClient {
     }
 
     return this.unaryCall<boltzrpc.CreateSwapRequest, boltzrpc.CreateSwapResponse.AsObject>('createSwap', request);
+  }
+
+  /**
+   * Creates a new reverse Swap from Lightning to the chain
+   */
+  public createReverseSwap = (baseCurrency: string, quoteCurrency: string, orderSide: boltzrpc.OrderSide, rate: number,
+    claimPublicKey: string, amount: number) => {
+
+    const request = new boltzrpc.CreateReverseSwapRequest();
+
+    request.setBaseCurrency(baseCurrency);
+    request.setQuoteCurrency(quoteCurrency);
+    request.setOrderSide(orderSide);
+    request.setRate(rate);
+    request.setClaimPublicKey(claimPublicKey);
+    request.setAmount(amount);
+
+    return this.unaryCall<boltzrpc.CreateReverseSwapRequest, boltzrpc.CreateReverseSwapResponse.AsObject>('createReverseSwap', request);
   }
 
   private startReconnectTimer = async () => {

@@ -71,6 +71,26 @@ class Controller {
     }
   }
 
+  public createReverseSwap = async (req: Request, res: Response) => {
+    try {
+      const { pairId, orderSide, claimPublicKey, amount } = this.validateBody(req.body, [
+        { name: 'pairId', type: 'string' },
+        { name: 'orderSide', type: 'string' },
+        { name: 'claimPublicKey', type: 'string' },
+        { name: 'amount', type: 'number' },
+      ]);
+
+      const response = await this.service.createReverseSwap(pairId, orderSide, claimPublicKey, amount);
+
+      this.logger.verbose(`Created reverse swap with id: ${response.id}`);
+      this.logger.silly(`Reverse swap ${response.id}: ${stringify(response)}`);
+
+      this.swapCreatedResponse(res, response);
+    } catch (error) {
+      this.writeErrorResponse(res, error);
+    }
+  }
+
   public swapStatus = (req: Request, res: Response) => {
     try {
       const { id } = this.validateBody(req.query, [
@@ -84,6 +104,10 @@ class Controller {
       });
 
       this.pendingSwaps.set(id, res);
+
+      res.on('close', () => {
+        this.pendingSwaps.delete(id);
+      });
     } catch (error) {
       this.writeErrorResponse(res, error);
     }
