@@ -8,12 +8,12 @@ class Controller {
   private pendingSwaps = new Map<string, Response>();
 
   constructor(private logger: Logger, private service: Service) {
-    this.service.on('swap.update', (id: string, message: string) => {
+    this.service.on('swap.update', (id: string, message: object) => {
       const response = this.pendingSwaps.get(id);
 
       if (response) {
-        this.logger.debug(`Swap ${id} update: ${message}`);
-        response.write(`data: ${JSON.stringify({ message })}\n\n`);
+        this.logger.debug(`Swap ${id} update: ${stringify(message)}`);
+        response.write(`data: ${JSON.stringify(message)}\n\n`);
       }
     });
   }
