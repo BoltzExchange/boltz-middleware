@@ -32,8 +32,8 @@ type PendingReverseSwap = {
 };
 
 interface Service {
-  on(event: 'swap.update', listener: (id: string, message: string) => void): this;
-  emit(event: 'swap.update', id: string, message: string): boolean;
+  on(event: 'swap.update', listener: (id: string, message: object) => void): this;
+  emit(event: 'swap.update', id: string, message: object): boolean;
 }
 
 class Service extends EventEmitter {
@@ -132,7 +132,7 @@ class Service extends EventEmitter {
     this.logger.verbose(`Initialised ${this.pairs.size} pairs: ${stringify(mapToObject(this.pairs))}`);
 
     const emitTransactionConfirmed = (id: string, transactionHash: string) =>
-      this.emit('swap.update', id, `Transaction confirmed: ${transactionHash}`);
+      this.emit('swap.update', id, { message: `Transaction confirmed: ${transactionHash}` });
 
     // Listen to events of the Boltz client
     this.boltz.on('transaction.confirmed', (transactionHash: string, outputAddress: string) => {
@@ -152,15 +152,18 @@ class Service extends EventEmitter {
     this.boltz.on('invoice.paid', (invoice: string) => {
       this.pendingSwaps.forEach((swap, id) => {
         if (swap.invoice === invoice) {
-          this.emit('swap.update', id, `Invoice paid: ${invoice}`);
+          this.emit('swap.update', id, { message: `Invoice paid: ${invoice}` });
         }
       });
     });
 
-    this.boltz.on('invoice.settled', (invoice: string) => {
+    this.boltz.on('invoice.settled', (invoice: string, preimage: string) => {
       this.pendingReverseSwaps.forEach((swap, id) => {
         if (swap.invoice === invoice) {
-          this.emit('swap.update', id, `Invoice settled: ${invoice}`);
+          this.emit('swap.update', id, {
+            preimage,
+            message: `Invoice settled: ${invoice}`,
+          });
         }
       });
     });
