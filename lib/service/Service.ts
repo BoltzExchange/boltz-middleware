@@ -198,8 +198,8 @@ class Service extends EventEmitter {
 
     const side = this.getOrderSide(orderSide);
 
-    const chainCurrency = this.getChainCurrency(side, base, quote);
-    const lightningCurrency = this.getLightningCurrency(side, base, quote);
+    const chainCurrency = side === OrderSide.BUY ? quote : base;
+    const lightningCurrency = side === OrderSide.BUY ? base : quote;
 
     const {
       address,
@@ -246,7 +246,9 @@ class Service extends EventEmitter {
       lockupTransaction,
       lockupTransactionHash,
     } = await this.boltz.createReverseSwap(base, quote, side, rate, claimPublicKey, amount);
-    await this.boltz.listenOnAddress(this.getChainCurrency(side, base, quote), lockupAddress);
+
+    const chainCurrency = side === OrderSide.BUY ? base : quote;
+    await this.boltz.listenOnAddress(chainCurrency, lockupAddress);
 
     const id = generateId(6);
 
@@ -282,24 +284,6 @@ class Service extends EventEmitter {
       quote,
       rate,
     };
-  }
-
-  /**
-   * Get the currency on which the onchain transaction of a swap happens
-   */
-  private getChainCurrency = (orderSide: OrderSide, base: string, quote: string) => {
-    if (orderSide === OrderSide.BUY) {
-      return quote;
-    } else {
-      return base;
-    }
-  }
-
-  /**
-   * Get the currency on which the Lightning transaction happens
-   */
-  private getLightningCurrency = (orderSide: OrderSide, base: string, quote: string) => {
-    return this.getChainCurrency(orderSide === OrderSide.BUY ? OrderSide.SELL : OrderSide.BUY, base, quote);
   }
 
   /**
