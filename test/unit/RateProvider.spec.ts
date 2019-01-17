@@ -2,6 +2,7 @@ import Logger from '../../lib/Logger';
 import RateProvider from '../../lib/rates/RateProvider';
 import DataBase from '../../lib/db/Database';
 import PairRepository from '../../lib/service/PairRepository';
+import { expect } from 'chai';
 
 describe('Rate Provider', () => {
   const rateProvider = new RateProvider(Logger.disabledLogger, 0.1);
@@ -16,24 +17,10 @@ describe('Rate Provider', () => {
 
   it('should retive rates', () => {
     const rates = rateProvider.rates;
-    console.log(rates);
+    expect(rates).to.be.an('map');
   });
 
   after(async () => {
-    clearInterval(10)
+    rateProvider.disconnectRateProvider();
   });
 });
-
-const connectPromise = async (rateProvider: RateProvider, pairs: RateProvider[]) => {
-  return new Promise(async (resolve) => {
-    await rateProvider
-
-    const interval = setInterval(async () => {
-      try {
-        await .getInfo();
-        clearInterval(interval);
-        resolve();
-      } catch (error) {}
-    }, 1000);
-  });
-};
