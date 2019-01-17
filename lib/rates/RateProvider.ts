@@ -43,7 +43,7 @@ class RateProvider {
   }
 
   public disconnectRateProvider = () => {
-    clearInterval(this.timer);    
+    clearInterval(this.timer);
   }
 
   private updateRates = async () => {

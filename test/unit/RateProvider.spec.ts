@@ -8,10 +8,10 @@ describe('Rate Provider', () => {
   const rateProvider = new RateProvider(Logger.disabledLogger, 0.1);
 
   before(async () => {
-    const db = new DataBase(Logger.disabledLogger,':memory:');
+    const db = new DataBase(Logger.disabledLogger, ':memory:');
     await db.init();
     const pairRepository = new PairRepository(db.models);
-    let dbPairs = await pairRepository.getPairs();
+    const dbPairs = await pairRepository.getPairs();
     await rateProvider.init(dbPairs);
   });
 
