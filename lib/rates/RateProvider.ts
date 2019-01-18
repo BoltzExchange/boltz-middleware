@@ -13,6 +13,7 @@ class RateProvider {
   private cryptoCompare = new CryptoCompare();
 
   private timer!: NodeJS.Timeout;
+
   constructor(private logger: Logger, private rateUpdateInterval: number) {
     this.cryptoCompare = new CryptoCompare();
   }
