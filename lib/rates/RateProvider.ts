@@ -12,6 +12,8 @@ class RateProvider {
 
   private cryptoCompare = new CryptoCompare();
 
+  private timer!: NodeJS.Timeout;
+
   constructor(private logger: Logger, private rateUpdateInterval: number) {
     this.cryptoCompare = new CryptoCompare();
   }
@@ -36,9 +38,13 @@ class RateProvider {
 
     this.logger.silly(`Updating rates every ${this.rateUpdateInterval} minutes`);
 
-    setInterval(async () => {
+    this.timer = setInterval(async () => {
       await this.updateRates();
     }, this.rateUpdateInterval * 60 * 1000);
+  }
+
+  public disconnectRateProvider = () => {
+    clearInterval(this.timer);
   }
 
   private updateRates = async () => {
