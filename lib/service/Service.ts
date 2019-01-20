@@ -13,6 +13,9 @@ import { splitPairId, stringify, generateId, mapToObject } from '../Utils';
 type PairConfig = {
   base: string;
   quote: string;
+
+  // If there is a hardcoded rate the CryptoCompare API will not be queried
+  rate?: number;
 };
 
 type Pair = {
@@ -61,13 +64,23 @@ class Service extends EventEmitter {
 
     type PairArray = PairConfig[] | PairInstance[];
 
+    const isUndefinedOrNull = (value: any) => value === undefined || value === null;
+
     const comparePairArrays = (array: PairArray, compare: PairArray, callback: Function) => {
       array.forEach((pair) => {
         let inCompare = false;
 
-        compare.forEach((comaprePair) => {
-          if (pair.base === comaprePair.base && pair.quote === comaprePair.quote) {
-            inCompare = true;
+        compare.forEach((comparePair) => {
+          if (pair.base === comparePair.base &&
+            pair.quote === comparePair.quote) {
+
+            // If the rate is equal in config and database or not defined in the config
+            // and null in the database the database entry doesn't have to be updated
+            if (pair.rate === comparePair.rate ||
+              (isUndefinedOrNull(pair.rate)) && isUndefinedOrNull(comparePair.rate)) {
+
+              inCompare = true;
+            }
           }
         });
 
@@ -79,14 +92,14 @@ class Service extends EventEmitter {
 
     const promises: Promise<any>[] = [];
 
-    comparePairArrays(pairs, dbPairs, (pair: PairFactory) => {
-      promises.push(this.pairRepository.addPair(pair));
-      this.logger.debug(`Adding pair to database: ${stringify(pair)}`);
-    });
-
     comparePairArrays(dbPairs, pairs, (pair: PairFactory) => {
       promises.push(this.pairRepository.removePair(pair));
       this.logger.debug(`Removing pair from database: ${stringify(pair)}`);
+    });
+
+    comparePairArrays(pairs, dbPairs, (pair: PairFactory) => {
+      promises.push(this.pairRepository.addPair(pair));
+      this.logger.debug(`Adding pair to database: ${stringify(pair)}`);
     });
 
     await Promise.all(promises);

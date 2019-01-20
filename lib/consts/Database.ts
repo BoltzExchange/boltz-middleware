@@ -17,6 +17,7 @@ export type SequelizeAttributes<T extends { [key: string]: any }> = {
 export type PairFactory = {
   base: string;
   quote: string;
+  rate?: number;
 };
 
 export type PairAttributes = PairFactory & {

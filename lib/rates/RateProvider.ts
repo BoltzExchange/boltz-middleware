@@ -23,6 +23,14 @@ class RateProvider {
    */
   public init = async (pairs: PairInstance[]) => {
     pairs.forEach((pair) => {
+      // If a pair has a hardcoded rate the CryptoCompare rate doesn't have to be queried
+      if (pair.rate) {
+        this.logger.debug(`Setting hardcoded rate for pair ${pair.id}: ${pair.rate}`);
+
+        this.rates.set(pair.id, pair.rate);
+        return;
+      }
+
       const baseAssets = this.baseAssetsMap.get(pair.quote);
 
       if (baseAssets) {
