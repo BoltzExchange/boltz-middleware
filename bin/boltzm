@@ -34,7 +34,7 @@ const { argv } = require('yargs').options({
     type: 'number',
   },
   'api.interval': {
-    descibe: 'The interval at which your rates should be updated in minutes',
+    descibe: 'Interval at which your rates should be updated in minutes',
     type: 'string',
   },
   'boltz.host': {
@@ -47,6 +47,26 @@ const { argv } = require('yargs').options({
   },
   'boltz.certpath': {
     describe: 'Path to the SSL certificate of Boltz',
+    type: 'string',
+  },
+  'notification.name': {
+    describe: 'The name of this boltz instance',
+    type: 'string',
+  },
+  'notification.interval': {
+    describe: 'Interval at which the balances of the backend should be checked in minutes',
+    type: 'string',
+  },
+  'notification.token': {
+    describe: 'Slack Bot user OAuth access token for the notification bot',
+    type: 'string',
+  },
+  'notification.channel': {
+    describe: 'Name of the Slack channel to which notifications should be sent',
+    type: 'string',
+  },
+  currencies: {
+    describe: 'Currencies that should be monitored by the middleware',
     type: 'string',
   },
   pairs: {

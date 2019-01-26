@@ -97,6 +97,34 @@ class BoltzClient extends BaseClient {
   }
 
   /**
+   * Gets the balance for either all wallets or just a single one if specified
+   */
+  public getBalance = (currency?: string) => {
+    const request = new boltzrpc.GetBalanceRequest();
+
+    if (currency) {
+      request.setCurrency(currency);
+    }
+
+    return this.unaryCall<boltzrpc.GetBalanceRequest, boltzrpc.GetBalanceResponse.AsObject>('getBalance', request);
+  }
+
+  /**
+   * Gets a new address of a specified wallet. The "type" parameter is optional and defaults to "OutputType.LEGACY"
+   */
+  public newAddress = (currency: string, outputType?: boltzrpc.OutputType) => {
+    const request = new boltzrpc.NewAddressRequest();
+
+    request.setCurrency(currency);
+
+    if (outputType) {
+      request.setType(outputType);
+    }
+
+    return this.unaryCall<boltzrpc.NewAddressRequest, boltzrpc.NewAddressResponse.AsObject>('newAddress', request);
+  }
+
+  /**
    * Gets a hex encoded transaction from a transaction hash on the specified network
    */
   public getTransaction = (currency: string, transactionHash: string) => {
