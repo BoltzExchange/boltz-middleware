@@ -42,6 +42,7 @@
     "url": "git+https://github.com/BoltzExchange/boltz-middleware.git"
   },
   "dependencies": {
+    "@slack/client": "^4.8.0",
     "axios": "^0.18.0",
     "bluebird": "^3.5.3",
     "cors": "^2.8.5",

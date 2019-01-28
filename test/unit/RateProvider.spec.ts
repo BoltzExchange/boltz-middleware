@@ -21,6 +21,6 @@ describe('Rate Provider', () => {
   });
 
   after(async () => {
-    rateProvider.disconnectRateProvider();
+    rateProvider.disconnect();
   });
 });

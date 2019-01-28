@@ -1,11 +1,12 @@
-import { Arguments } from 'yargs';
 import fs from 'fs';
 import path from 'path';
 import toml from 'toml';
+import { Arguments } from 'yargs';
 import { ApiConfig } from './api/Api';
+import { PairConfig } from './service/Service';
 import { BoltzConfig } from './boltz/BoltzClient';
 import { getServiceDir, deepMerge, resolveHome } from './Utils';
-import { PairConfig } from './service/Service';
+import { NotificationConfig, CurrencyConfig } from './notifications/NotificationProvider';
 
 class Config {
   public logpath: string;
@@ -16,6 +17,10 @@ class Config {
   public api: ApiConfig;
 
   public boltz: BoltzConfig;
+
+  public notification: NotificationConfig;
+
+  public currencies: CurrencyConfig[];
 
   public pairs: PairConfig[];
 
@@ -47,10 +52,41 @@ class Config {
       certpath: path.join(getServiceDir('boltz'), 'tls.cert'),
     };
 
+    this.notification = {
+      name: '',
+      interval: 1,
+
+      token: '',
+      channel: '',
+    };
+
+    this.currencies = [
+      {
+        symbol: 'BTC',
+        walletbalance: 1000000,
+        channelbalance: 500000,
+      },
+      {
+        symbol: 'LTC',
+        walletbalance: 100000000,
+        channelbalance: 50000000,
+      },
+    ];
+
     this.pairs = [
       {
         base: 'LTC',
         quote: 'BTC',
+      },
+      {
+        base: 'BTC',
+        quote: 'BTC',
+        rate: 1,
+      },
+      {
+        base: 'LTC',
+        quote: 'LTC',
+        rate: 1,
       },
     ];
   }

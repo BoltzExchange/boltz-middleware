@@ -149,3 +149,17 @@ export const resolveHome = (filename: string) => {
 
   return filename;
 };
+
+/**
+ * Convert minutes into milliseconds
+ */
+export const minutesToMilliseconds = (minutes: number) => {
+  return minutes * 60 * 1000;
+};
+
+/**
+ * Convert satoshis to whole coins and remove trailing zeros
+ */
+export const satoshisToWholeCoins = (satoshis: number) => {
+  return Number((satoshis / 100000000).toFixed(8));
+};

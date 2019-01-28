@@ -1,7 +1,7 @@
 import Logger from '../Logger';
 import CryptoCompare from './CryptoCompare';
 import { PairInstance } from 'lib/consts/Database';
-import { getPairId, stringify, mapToObject } from '../Utils';
+import { getPairId, stringify, mapToObject, minutesToMilliseconds } from '../Utils';
 
 class RateProvider {
   // A map between pair ids and their rates
@@ -48,10 +48,10 @@ class RateProvider {
 
     this.timer = setInterval(async () => {
       await this.updateRates();
-    }, this.rateUpdateInterval * 60 * 1000);
+    }, minutesToMilliseconds(this.rateUpdateInterval));
   }
 
-  public disconnectRateProvider = () => {
+  public disconnect = () => {
     clearInterval(this.timer);
   }
 
