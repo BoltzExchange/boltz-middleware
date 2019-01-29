@@ -9,7 +9,7 @@ const getBip21Prefix = (symbol: string) => {
  * Encode a BIP21 payment request
  */
 export const encodeBip21 = (symbol: string, address: string, satoshis: number, label?: string) => {
-  let request = `${getBip21Prefix(symbol)}:${address}?value=${satoshis / 100000000}`;
+  let request = `${getBip21Prefix(symbol)}:${address}?amount=${satoshis / 100000000}`;
 
   if (label) {
     request += `&label=${label.replace(/ /g, '%20')}`;
