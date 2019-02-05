@@ -213,11 +213,12 @@ class BoltzClient extends BaseClient {
 
     const request = new boltzrpc.CreateSwapRequest();
 
-    request.setBaseCurrency(baseCurrency);
-    request.setQuoteCurrency(quoteCurrency);
-    request.setOrderSide(orderSide);
     request.setRate(rate);
     request.setInvoice(invoice);
+    request.setOrderSide(orderSide);
+    request.setTimeoutBlockNumber(10);
+    request.setBaseCurrency(baseCurrency);
+    request.setQuoteCurrency(quoteCurrency);
     request.setRefundPublicKey(refundPublicKey);
 
     if (outputType) {
@@ -235,12 +236,13 @@ class BoltzClient extends BaseClient {
 
     const request = new boltzrpc.CreateReverseSwapRequest();
 
+    request.setRate(rate);
+    request.setAmount(amount);
+    request.setOrderSide(orderSide);
+    request.setTimeoutBlockNumber(10);
     request.setBaseCurrency(baseCurrency);
     request.setQuoteCurrency(quoteCurrency);
-    request.setOrderSide(orderSide);
-    request.setRate(rate);
     request.setClaimPublicKey(claimPublicKey);
-    request.setAmount(amount);
 
     return this.unaryCall<boltzrpc.CreateReverseSwapRequest, boltzrpc.CreateReverseSwapResponse.AsObject>('createReverseSwap', request);
   }
