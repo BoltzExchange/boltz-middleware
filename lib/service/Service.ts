@@ -219,7 +219,7 @@ class Service extends EventEmitter {
       redeemScript,
       expectedAmount,
       timeoutBlockHeight,
-    } = await this.boltz.createSwap(base, quote, side, rate, invoice, refundPublicKey, OutputType.BECH32);
+    } = await this.boltz.createSwap(base, quote, side, rate, invoice, refundPublicKey, OutputType.COMPATIBILITY);
     await this.boltz.listenOnAddress(chainCurrency, address);
 
     const id = generateId(6);
