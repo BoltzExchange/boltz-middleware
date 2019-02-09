@@ -5,7 +5,7 @@ import PairRepository from '../../lib/service/PairRepository';
 import { expect } from 'chai';
 
 describe('Rate Provider', () => {
-  const rateProvider = new RateProvider(Logger.disabledLogger, 0.1);
+  const rateProvider = new RateProvider(Logger.disabledLogger, 0.1, []);
 
   before(async () => {
     const db = new DataBase(Logger.disabledLogger, ':memory:');
@@ -17,7 +17,8 @@ describe('Rate Provider', () => {
 
   it('should retive rates', () => {
     const rates = rateProvider.rates;
-    expect(rates).to.be.an('map');
+
+    expect(rates).to.be.a('map');
   });
 
   after(async () => {
