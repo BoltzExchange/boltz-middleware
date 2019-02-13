@@ -8,7 +8,7 @@ type Models = {
   Pair: Sequelize.Model<db.PairInstance, db.PairAttributes>;
 };
 
-class Db {
+class Database {
   public sequelize: Sequelize.Sequelize;
   public models: Models;
 
@@ -67,5 +67,5 @@ class Db {
   }
 }
 
-export default Db;
+export default Database;
 export { Models };
