@@ -63,13 +63,21 @@ class Config {
     this.currencies = [
       {
         symbol: 'BTC',
-        walletbalance: 1000000,
-        channelbalance: 500000,
+
+        maxSwapAmount: 100000,
+        minSwapAmount: 1000,
+
+        minWalletBalance: 1000000,
+        minChannelBalance: 500000,
       },
       {
         symbol: 'LTC',
-        walletbalance: 100000000,
-        channelbalance: 50000000,
+
+        maxSwapAmount: 10000000,
+        minSwapAmount: 10000,
+
+        minWalletBalance: 100000000,
+        minChannelBalance: 50000000,
       },
     ];
 

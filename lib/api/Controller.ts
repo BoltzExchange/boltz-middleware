@@ -18,8 +18,13 @@ class Controller {
     });
   }
 
-  public getPairs = async (_req: Request, res: Response) => {
+  public getPairs = (_req: Request, res: Response) => {
     const response = this.service.getPairs();
+    this.successResponse(res, response);
+  }
+
+  public getLimits = async (_req: Request, res: Response) => {
+    const response = this.service.getLimits();
     this.successResponse(res, response);
   }
 

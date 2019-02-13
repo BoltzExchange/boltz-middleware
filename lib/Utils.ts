@@ -161,5 +161,12 @@ export const minutesToMilliseconds = (minutes: number) => {
  * Convert satoshis to whole coins and remove trailing zeros
  */
 export const satoshisToWholeCoins = (satoshis: number) => {
-  return Number((satoshis / 100000000).toFixed(8));
+  return roundToDecimals(satoshis / 100000000, 8);
+};
+
+/**
+ * Round a number to a specific amount of decimals
+ */
+export const roundToDecimals = (number: number, decimals: number) => {
+  return Number(number.toFixed(decimals));
 };

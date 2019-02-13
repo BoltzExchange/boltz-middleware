@@ -15,4 +15,12 @@ export default {
     message: `order side not supported: ${orderSide}`,
     code: concatErrorCode(ErrorCodePrefix.Service, 2),
   }),
+  EXCEED_MAXIMAL_AMOUNT: (amount: number, maximalAmount: number) => ({
+    message: `${amount} is more than maximal ${maximalAmount}`,
+    code: concatErrorCode(ErrorCodePrefix.Service, 3),
+  }),
+  BENEATH_MINIMAL_AMOUNT: (amount: number, minimalAmount: number) => ({
+    message: `${amount} is less than minimal ${minimalAmount}`,
+    code: concatErrorCode(ErrorCodePrefix.Service, 4),
+  }),
 };

@@ -28,7 +28,13 @@ class BoltzMiddleware {
     this.db = new Database(this.logger, this.config.dbpath);
     this.boltzClient = new BoltzClient(this.logger, this.config.boltz);
 
-    this.service = new Service(this.logger, this.db, this.boltzClient, this.config.api.interval);
+    this.service = new Service(
+      this.logger,
+      this.boltzClient,
+      this.db,
+      this.config.api.interval,
+      this.config.currencies,
+    );
 
     this.notifications = new NotificationProvider(
       this.logger,

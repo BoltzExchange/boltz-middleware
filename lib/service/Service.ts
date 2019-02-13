@@ -1,3 +1,4 @@
+import bolt11 from '@boltz/bolt11';
 import { EventEmitter } from 'events';
 import Errors from './Errors';
 import Logger from '../Logger';
@@ -7,8 +8,9 @@ import BoltzClient from '../boltz/BoltzClient';
 import RateProvider from '../rates/RateProvider';
 import { encodeBip21 } from './PaymentRequestUtils';
 import { PairInstance, PairFactory } from '../consts/Database';
+import { CurrencyConfig } from '../notifications/NotificationProvider';
 import { OrderSide, OutputType, CurrencyInfo } from '../proto/boltzrpc_pb';
-import { splitPairId, stringify, generateId, mapToObject } from '../Utils';
+import { splitPairId, stringify, generateId, mapToObject, satoshisToWholeCoins } from '../Utils';
 
 type PairConfig = {
   base: string;
@@ -51,10 +53,16 @@ class Service extends EventEmitter {
 
   private pairs = new Map<string, Pair>();
 
-  constructor(private logger: Logger, db: Database, private boltz: BoltzClient, rateInterval: number) {
+  constructor(
+    private logger: Logger,
+    private boltz: BoltzClient,
+    db: Database,
+    rateInterval: number,
+    currencies: CurrencyConfig[]) {
+
     super();
 
-    this.rateProvider = new RateProvider(this.logger, rateInterval);
+    this.rateProvider = new RateProvider(this.logger, rateInterval, currencies);
     this.pairRepository = new PairRepository(db.models);
   }
 
@@ -142,7 +150,7 @@ class Service extends EventEmitter {
       }
     });
 
-    this.logger.verbose(`Initialised ${this.pairs.size} pairs: ${stringify(mapToObject(this.pairs))}`);
+    this.logger.verbose(`Initialised ${this.pairs.size} pairs: ${stringify(Array.from(this.pairs.keys()))}`);
 
     const emitTransactionConfirmed = (id: string, transactionHash: string) =>
       this.emit('swap.update', id, { message: `Transaction confirmed: ${transactionHash}` });
@@ -190,6 +198,13 @@ class Service extends EventEmitter {
   }
 
   /**
+   * Gets the exchange limits for all supported pairs
+   */
+  public getLimits = () => {
+    return mapToObject(this.rateProvider.limits);
+  }
+
+  /**
    * Gets a hex encoded transaction from a transaction hash on the specified network
    */
   public getTransaction = (currency: string, transactionHash: string) => {
@@ -213,6 +228,10 @@ class Service extends EventEmitter {
 
     const chainCurrency = side === OrderSide.BUY ? quote : base;
     const lightningCurrency = side === OrderSide.BUY ? base : quote;
+
+    const { millisatoshis } = bolt11.decode(invoice);
+
+    this.verifyAmount(millisatoshis / 1000, pairId, side, rate);
 
     const {
       address,
@@ -251,6 +270,8 @@ class Service extends EventEmitter {
     const { base, quote, rate } = this.getPair(pairId);
 
     const side = this.getOrderSide(orderSide);
+
+    this.verifyAmount(amount, pairId, side, rate);
 
     const {
       invoice,
@@ -297,6 +318,27 @@ class Service extends EventEmitter {
       quote,
       rate,
     };
+  }
+
+  /**
+   * Verfies that the requested amount is neither above the maximal nor beneath the minimal
+   */
+  private verifyAmount = (satoshis: number, pairId: string, orderSide: OrderSide, rate: number) => {
+    if (orderSide === OrderSide.SELL) {
+      // tslint:disable-next-line:no-parameter-reassignment
+      satoshis = satoshis * (1 / rate);
+    }
+
+    const limits = this.rateProvider.limits.get(pairId);
+
+    if (limits) {
+      const amount = satoshisToWholeCoins(satoshis);
+
+      if (amount > limits.maximal) throw Errors.EXCEED_MAXIMAL_AMOUNT(amount, limits.maximal);
+      if (amount < limits.minimal) throw Errors.BENEATH_MINIMAL_AMOUNT(amount, limits.minimal);
+    } else {
+      throw Errors.CURRENCY_NOT_SUPPORTED_BY_BACKEND(pairId);
+    }
   }
 
   /**

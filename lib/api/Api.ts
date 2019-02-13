@@ -32,6 +32,7 @@ class Api {
 
   private registerRoutes = (controller: Controller) => {
     this.app.route('/getpairs').get(controller.getPairs);
+    this.app.route('/getlimits').get(controller.getLimits);
 
     this.app.route('/gettransaction').post(controller.getTransaction);
     this.app.route('/broadcasttransaction').post(controller.broadcastTransaction);

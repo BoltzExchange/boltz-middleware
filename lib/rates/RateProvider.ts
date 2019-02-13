@@ -1,21 +1,35 @@
 import Logger from '../Logger';
 import CryptoCompare from './CryptoCompare';
-import { PairInstance } from 'lib/consts/Database';
-import { getPairId, stringify, mapToObject, minutesToMilliseconds } from '../Utils';
+import { PairInstance } from '../consts/Database';
+import { CurrencyConfig } from '../notifications/NotificationProvider';
+import { getPairId, stringify, mapToObject, minutesToMilliseconds, satoshisToWholeCoins, roundToDecimals } from '../Utils';
+
+type Limits = {
+  minimal: number;
+  maximal: number;
+};
 
 class RateProvider {
   // A map between pair ids and their rates
   public rates = new Map<string, number>();
 
+  // A map between pair ids and their limits
+  public limits = new Map<string, Limits>();
+
   // A map between quote and their base assets
   private baseAssetsMap = new Map<string, string[]>();
+
+  // A map between assets and their limits
+  private currencies = new Map<string, Limits>();
 
   private cryptoCompare = new CryptoCompare();
 
   private timer!: NodeJS.Timeout;
 
-  constructor(private logger: Logger, private rateUpdateInterval: number) {
+  constructor(private logger: Logger, private rateUpdateInterval: number, currencies: CurrencyConfig[]) {
     this.cryptoCompare = new CryptoCompare();
+
+    this.parseCurrencies(currencies);
   }
 
   /**
@@ -26,8 +40,16 @@ class RateProvider {
       // If a pair has a hardcoded rate the CryptoCompare rate doesn't have to be queried
       if (pair.rate) {
         this.logger.debug(`Setting hardcoded rate for pair ${pair.id}: ${pair.rate}`);
-
         this.rates.set(pair.id, pair.rate);
+
+        const limits = this.currencies.get(pair.base);
+
+        if (limits) {
+          this.logger.debug(`Setting limits for hardcoded pair ${pair.id}: ${stringify(limits)}`);
+          this.limits.set(pair.id, limits);
+        } else {
+          this.logger.warn(`Could not get limits for hardcoded pair ${pair.id}`);
+        }
         return;
       }
 
@@ -63,7 +85,11 @@ class RateProvider {
         const baseAssetsRates = await this.cryptoCompare.getPriceMulti(baseAssets, [quoteAsset]);
 
         baseAssets.forEach((baseAsset) => {
-          this.rates.set(getPairId({ base: baseAsset, quote: quoteAsset }), baseAssetsRates[baseAsset][quoteAsset]);
+          const pair = getPairId({ base: baseAsset, quote: quoteAsset });
+          const rate = baseAssetsRates[baseAsset][quoteAsset];
+
+          this.rates.set(pair, rate);
+          this.updateLimits(pair, baseAsset, quoteAsset, rate);
         });
 
         resolve();
@@ -73,8 +99,45 @@ class RateProvider {
     await Promise.all(promises);
 
     this.logger.debug(`Updated rates: ${stringify(mapToObject(this.rates))}`);
+    this.logger.debug(`Updated limits: ${stringify(mapToObject(this.limits))}`);
   }
 
+  private updateLimits = (pair: string, base: string, quote: string, rate: number) => {
+    const baseLimits = this.currencies.get(base);
+    const quoteLimits = this.currencies.get(quote);
+
+    if (baseLimits && quoteLimits) {
+      // The limits we show are for the base asset and therefore to determine whether
+      // the limits for the base or quote asset are higher for minimal or lower for
+      // the maximal amount we need to multiply the quote limits times (1 / rate)
+      const reverseQuoteLimits = this.calculateQuoteLimits(rate, quoteLimits);
+
+      this.limits.set(pair, {
+        maximal: Math.min(baseLimits.maximal, reverseQuoteLimits.maximal),
+        minimal: Math.max(baseLimits.minimal, reverseQuoteLimits.minimal),
+      });
+    } else {
+      this.logger.warn(`Could not get limits for pair ${pair}`);
+    }
+  }
+
+  private calculateQuoteLimits = (rate: number, limits: Limits) => {
+    const reverseRate = 1 / rate;
+
+    return {
+      maximal: roundToDecimals(reverseRate * limits.maximal, 8),
+      minimal: roundToDecimals(reverseRate * limits.minimal, 8),
+    };
+  }
+
+  private parseCurrencies = (currencies: CurrencyConfig[]) => {
+    currencies.forEach((currency) => {
+      this.currencies.set(currency.symbol, {
+        maximal: satoshisToWholeCoins(currency.maxSwapAmount),
+        minimal: satoshisToWholeCoins(currency.minSwapAmount),
+      });
+    });
+  }
 }
 
 export default RateProvider;

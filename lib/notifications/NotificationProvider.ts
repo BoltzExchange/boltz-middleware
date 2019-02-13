@@ -14,8 +14,12 @@ type NotificationConfig = {
 
 type CurrencyConfig = {
   symbol: string;
-  channelbalance: number;
-  walletbalance: number;
+
+  maxSwapAmount: number;
+  minSwapAmount: number;
+
+  minWalletBalance: number;
+  minChannelBalance: number;
 };
 
 class NotificationProvider {
@@ -65,11 +69,8 @@ class NotificationProvider {
       if (balance) {
         const { channelBalance, walletBalance } = balance;
 
-        await this.checkBalance(currency.symbol, false, currency.channelbalance, channelBalance);
-
-        if (walletBalance) {
-          await this.checkBalance(currency.symbol, true, currency.walletbalance, walletBalance.totalBalance);
-        }
+        await this.checkBalance(currency.symbol, false, currency.minChannelBalance, channelBalance);
+        await this.checkBalance(currency.symbol, true, currency.minWalletBalance, walletBalance!.totalBalance);
       }
     }
   }
