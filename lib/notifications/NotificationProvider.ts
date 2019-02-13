@@ -37,10 +37,14 @@ class NotificationProvider {
     private currencies: CurrencyConfig[]) {
 
     this.slack = new SlackClient(config.token, config.channel, config.name);
+    this.listenCommands();
   }
 
   public init = async () => {
     try {
+      await this.slack.init();
+      await this.slack.listenToMessages();
+
       await this.slack.sendMessage('Started Boltz instance');
       this.logger.verbose('Connected to Slack');
 
@@ -92,6 +96,16 @@ class NotificationProvider {
     }
   }
 
+  private listenCommands = () => {
+    this.slack.on('message', async (message: string) => {
+      switch (message.toLowerCase()) {
+        case 'getbalance':
+          await this.sendBalance();
+          break;
+      }
+    });
+  }
+
   private sendAlert = async (currency: string, isWallet: boolean, expectedBalance: number, actualBalance: number) => {
     const { expected, actual } = this.formatBalances(expectedBalance, actualBalance);
     const missing = satoshisToWholeCoins(expectedBalance - actualBalance);
@@ -123,6 +137,24 @@ class NotificationProvider {
     await this.slack.sendMessage(
       `The ${currency} ${walletName} balance of ${actual} ${currency} is more than expected ${expected} ${currency} again`,
     );
+  }
+
+  private sendBalance = async () => {
+    const balances = await this.boltz.getBalance();
+
+    let message = 'Balances:';
+
+    balances.balancesMap.forEach((value) => {
+      const symbol = value[0];
+      const balance = value[1];
+
+      // tslint:disable-next-line:prefer-template
+      message += `\n\n*${symbol}*\n` +
+        `Wallet: ${satoshisToWholeCoins(balance.walletBalance!.totalBalance)} ${symbol}\n` +
+        `Channels: ${satoshisToWholeCoins(balance.channelBalance)} ${symbol}`;
+    });
+
+    await this.slack.sendMessage(message);
   }
 
   private formatBalances = (expectedBalance: number, actualBalance: number) => {
