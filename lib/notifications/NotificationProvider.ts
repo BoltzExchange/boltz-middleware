@@ -1,7 +1,7 @@
 import Logger from '../Logger';
 import SlackClient from './SlackClient';
-import BoltzClient from '../boltz/BoltzClient';
 import { Balance, OutputType } from '../proto/boltzrpc_pb';
+import BoltzClient, { ConnectionStatus } from '../boltz/BoltzClient';
 import { minutesToMilliseconds, satoshisToWholeCoins } from '../Utils';
 
 type NotificationConfig = {
@@ -30,6 +30,8 @@ class NotificationProvider {
   private walletAlerts = new Set<string>();
   private channelAlerts = new Set<string>();
 
+  private disconnected = false;
+
   constructor(
     private logger: Logger,
     private boltz: BoltzClient,
@@ -37,6 +39,8 @@ class NotificationProvider {
     private currencies: CurrencyConfig[]) {
 
     this.slack = new SlackClient(config.token, config.channel, config.name);
+
+    this.listenBoltz();
     this.listenCommands();
   }
 
@@ -94,6 +98,26 @@ class NotificationProvider {
         await this.sendAlert(currency, isWallet, expectedBalance, actualBalance);
       }
     }
+  }
+
+  private listenBoltz = () => {
+    this.boltz.on('status.updated', async (status: ConnectionStatus) => {
+      switch (status) {
+        case ConnectionStatus.Connected:
+          if (this.disconnected) {
+            this.disconnected = false;
+            await this.slack.sendMessage('Connected to backend');
+          }
+          break;
+
+        case ConnectionStatus.Disconnected:
+          if (!this.disconnected) {
+            this.disconnected = true;
+            await this.slack.sendMessage('*Lost connection to backend*');
+          }
+          break;
+      }
+    });
   }
 
   private listenCommands = () => {

@@ -17,6 +17,11 @@ type BoltzConfig = {
   certpath: string;
 };
 
+enum ConnectionStatus {
+  Connected,
+  Disconnected,
+}
+
 interface GrpcResponse {
   toObject: Function;
 }
@@ -26,6 +31,9 @@ interface BoltzMethodIndex extends GrpcClient {
 }
 
 interface BoltzClient {
+  on(event: 'status.updated', listener: (status: ConnectionStatus) => void): this;
+  emit(event: 'status.updated', status: ConnectionStatus): boolean;
+
   on(event: 'transaction.confirmed', listener: (transactionHash: string, outputAddress: string) => void): this;
   emit(event: 'transaction.confirmed', transactionHash: string, outputAddress: string): boolean;
 
@@ -161,51 +169,6 @@ class BoltzClient extends BaseClient {
   }
 
   /**
-   * Subscribes to a stream of confirmed transactions to addresses that were specified with "ListenOnAddress"
-   */
-  public subscribeTransactions = () => {
-    if (this.transactionSubscription) {
-      this.transactionSubscription.cancel();
-    }
-
-    this.transactionSubscription = this.boltz.subscribeTransactions(new boltzrpc.SubscribeTransactionsRequest(), this.meta)
-      .on('data', (response: boltzrpc.SubscribeTransactionsResponse) => {
-        this.logger.silly(`Found transaction to address ${response.getOutputAddress()} confirmed: ${response.getTransactionHash()}`);
-        this.emit('transaction.confirmed', response.getTransactionHash(), response.getOutputAddress());
-      })
-      .on('error', async (error) => {
-        this.logger.error(`Transaction subscription errored: ${stringify(error)}`);
-        await this.startReconnectTimer();
-      });
-  }
-
-  /**
-   * Subscribes to a stream of invoices paid by Boltz
-   */
-  public subscribeInvoices = () => {
-    if (this.invoicesSubscription) {
-      this.invoicesSubscription.cancel();
-    }
-
-    this.invoicesSubscription = this.boltz.subscribeInvoices(new boltzrpc.SubscribeInvoicesRequest(), this.meta)
-      .on('data', (response: boltzrpc.SubscribeInvoicesResponse) => {
-        const invoice = response.getInvoice();
-
-        if (response.getEvent() === boltzrpc.InvoiceEvent.PAID) {
-          this.logger.silly(`Invoice paid: ${invoice}`);
-          this.emit('invoice.paid', invoice);
-        } else {
-          this.logger.silly(`Invoice settled: ${invoice}`);
-          this.emit('invoice.settled', invoice, response.getPreimage());
-        }
-      })
-      .on('error', async (error) => {
-        this.logger.error(`Invoice subscription errored: ${stringify(error)}`);
-        await this.startReconnectTimer();
-      });
-  }
-
-  /**
    * Creates a new Swap from the chain to Lightning
    */
   public createSwap = (baseCurrency: string, quoteCurrency: string, orderSide: boltzrpc.OrderSide, rate: number,
@@ -247,6 +210,55 @@ class BoltzClient extends BaseClient {
     return this.unaryCall<boltzrpc.CreateReverseSwapRequest, boltzrpc.CreateReverseSwapResponse.AsObject>('createReverseSwap', request);
   }
 
+  /**
+   * Subscribes to a stream of confirmed transactions to addresses that were specified with "ListenOnAddress"
+   */
+  public subscribeTransactions = () => {
+    if (this.transactionSubscription) {
+      this.transactionSubscription.cancel();
+    }
+
+    this.transactionSubscription = this.boltz.subscribeTransactions(new boltzrpc.SubscribeTransactionsRequest(), this.meta)
+      .on('data', (response: boltzrpc.SubscribeTransactionsResponse) => {
+        this.logger.silly(`Found transaction to address ${response.getOutputAddress()} confirmed: ${response.getTransactionHash()}`);
+        this.emit('transaction.confirmed', response.getTransactionHash(), response.getOutputAddress());
+      })
+      .on('error', async (error) => {
+        this.emit('status.updated', ConnectionStatus.Disconnected);
+
+        this.logger.error(`Transaction subscription errored: ${stringify(error)}`);
+        await this.startReconnectTimer();
+      });
+  }
+
+  /**
+   * Subscribes to a stream of invoices paid by Boltz
+   */
+  public subscribeInvoices = () => {
+    if (this.invoicesSubscription) {
+      this.invoicesSubscription.cancel();
+    }
+
+    this.invoicesSubscription = this.boltz.subscribeInvoices(new boltzrpc.SubscribeInvoicesRequest(), this.meta)
+      .on('data', (response: boltzrpc.SubscribeInvoicesResponse) => {
+        const invoice = response.getInvoice();
+
+        if (response.getEvent() === boltzrpc.InvoiceEvent.PAID) {
+          this.logger.silly(`Invoice paid: ${invoice}`);
+          this.emit('invoice.paid', invoice);
+        } else {
+          this.logger.silly(`Invoice settled: ${invoice}`);
+          this.emit('invoice.settled', invoice, response.getPreimage());
+        }
+      })
+      .on('error', async (error) => {
+        this.emit('status.updated', ConnectionStatus.Disconnected);
+
+        this.logger.error(`Invoice subscription errored: ${stringify(error)}`);
+        await this.startReconnectTimer();
+      });
+  }
+
   private startReconnectTimer = async () => {
     if (!this.isReconnecting) {
       this.isReconnecting = true;
@@ -258,6 +270,8 @@ class BoltzClient extends BaseClient {
   private reconnect = async () => {
     try {
       const getInfo = await this.getInfo();
+
+      this.emit('status.updated', ConnectionStatus.Connected);
 
       this.logger.info('Connected to Boltz');
       this.logger.verbose(`Boltz status: ${stringify(getInfo)}`);
@@ -292,4 +306,4 @@ class BoltzClient extends BaseClient {
 }
 
 export default BoltzClient;
-export { BoltzConfig };
+export { BoltzConfig, ConnectionStatus };
