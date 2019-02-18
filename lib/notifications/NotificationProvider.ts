@@ -26,11 +26,11 @@ class NotificationProvider {
   private slack: SlackClient;
   private timer!: NodeJS.Timer;
 
-  // These Sets contains the symbols for which an alert notification was sent
+  // These Sets contain the symbols for which an alert notification was sent
   private walletAlerts = new Set<string>();
   private channelAlerts = new Set<string>();
 
-  private disconnected = false;
+  private disconnected = new Set<string>();
 
   constructor(
     private logger: Logger,
@@ -40,8 +40,8 @@ class NotificationProvider {
 
     this.slack = new SlackClient(config.token, config.channel, config.name);
 
-    this.listenBoltz();
-    this.listenCommands();
+    this.listenToBoltz();
+    this.listenForCommands();
   }
 
   public init = async () => {
@@ -52,12 +52,17 @@ class NotificationProvider {
       await this.slack.sendMessage('Started Boltz instance');
       this.logger.verbose('Connected to Slack');
 
-      await this.checkBalances();
+      const check = async () => {
+        await this.checkConnections();
+        await this.checkBalances();
+      };
 
-      this.logger.silly(`Checking balances every ${this.config.interval} minutes`);
+      await check();
+
+      this.logger.debug(`Checking balances and connection status every ${this.config.interval} minutes`);
 
       this.timer = setInterval(async () => {
-        await this.checkBalances();
+        await check();
       }, minutesToMilliseconds(this.config.interval));
     } catch (error) {
       this.logger.warn(`Could not connect to Slack: ${error}`);
@@ -66,6 +71,33 @@ class NotificationProvider {
 
   public disconnect = () => {
     clearInterval(this.timer);
+  }
+
+  private checkConnections = async () => {
+    const info = await this.boltz.getInfo();
+
+    info.chainsMap.forEach(async ([symbol, chain]) => {
+      await this.checkConnection(`${symbol} node`, chain.chain);
+      await this.checkConnection(`${symbol} LND`, chain.lnd);
+    });
+  }
+
+  private checkConnection = async (service: string, object: { error: string } | undefined) => {
+    if (object) {
+      if (object.error === '') {
+        if (this.disconnected.has(service)) {
+          this.disconnected.delete(service);
+          await this.sendReconnected(service);
+        }
+
+        return;
+      }
+    }
+
+    if (!this.disconnected.has(service)) {
+      this.disconnected.add(service);
+      await this.sendLostConnection(service);
+    }
   }
 
   private checkBalances = async () => {
@@ -100,27 +132,29 @@ class NotificationProvider {
     }
   }
 
-  private listenBoltz = () => {
+  private listenToBoltz = () => {
+    const service = 'backend';
+
     this.boltz.on('status.updated', async (status: ConnectionStatus) => {
       switch (status) {
         case ConnectionStatus.Connected:
-          if (this.disconnected) {
-            this.disconnected = false;
-            await this.slack.sendMessage('Connected to backend');
+          if (this.disconnected.has(service)) {
+            this.disconnected.delete(service);
+            await this.sendReconnected('backend');
           }
           break;
 
         case ConnectionStatus.Disconnected:
-          if (!this.disconnected) {
-            this.disconnected = true;
-            await this.slack.sendMessage('*Lost connection to backend*');
+          if (!this.disconnected.has(service)) {
+            this.disconnected.add(service);
+            await this.sendLostConnection('backend');
           }
           break;
       }
     });
   }
 
-  private listenCommands = () => {
+  private listenForCommands = () => {
     this.slack.on('message', async (message: string) => {
       switch (message.toLowerCase()) {
         case 'getbalance':
@@ -179,6 +213,14 @@ class NotificationProvider {
     });
 
     await this.slack.sendMessage(message);
+  }
+
+  private sendLostConnection = async (service: string) => {
+    await this.slack.sendMessage(`*Lost connection to ${service}*`);
+  }
+
+  private sendReconnected = async (service: string) => {
+    await this.slack.sendMessage(`Reconnected to ${service}`);
   }
 
   private formatBalances = (expectedBalance: number, actualBalance: number) => {

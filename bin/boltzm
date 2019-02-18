@@ -54,7 +54,7 @@ const { argv } = require('yargs').options({
     type: 'string',
   },
   'notification.interval': {
-    describe: 'Interval at which the balances of the backend should be checked in minutes',
+    describe: 'Interval at which the balances and connection status of the backend should be checked in minutes',
     type: 'string',
   },
   'notification.token': {
