@@ -43,10 +43,10 @@ class SlackClient extends EventEmitter {
   }
 
   public sendMessage = async (message: string) => {
-    await this.client.chat.postMessage({
-      channel: this.channel,
-      text: `[${this.name}]: ${message}`,
-    });
+    await this.rtm.sendMessage(
+      `[${this.name}]: ${message}`,
+      this.channelId,
+    );
   }
 
   public listenToMessages = async () => {

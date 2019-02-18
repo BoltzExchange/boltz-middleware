@@ -119,11 +119,11 @@ class Service extends EventEmitter {
     this.logger.verbose('Updated pairs in database with config');
 
     // Make sure all pairs are supported by the backend and init the pairs array
-    const { chainsList } = await this.boltz.getInfo();
+    const { chainsMap } = await this.boltz.getInfo();
     const chainMap = new Map<string, CurrencyInfo.AsObject>();
 
-    chainsList.forEach((chain) => {
-      chainMap.set(chain.symbol, chain);
+    chainsMap.forEach(([symbol, chain]) => {
+      chainMap.set(symbol, chain);
     });
 
     const verifyBackendSupport = (symbol: string) => {
