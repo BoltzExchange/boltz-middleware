@@ -98,8 +98,8 @@ class RateProvider {
 
     await Promise.all(promises);
 
-    this.logger.debug(`Updated rates: ${stringify(mapToObject(this.rates))}`);
-    this.logger.debug(`Updated limits: ${stringify(mapToObject(this.limits))}`);
+    this.logger.silly(`Updated rates: ${stringify(mapToObject(this.rates))}`);
+    this.logger.silly(`Updated limits: ${stringify(mapToObject(this.limits))}`);
   }
 
   private updateLimits = (pair: string, base: string, quote: string, rate: number) => {
