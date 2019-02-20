@@ -145,6 +145,18 @@ class BoltzClient extends BaseClient {
   }
 
   /**
+   * Gets a fee estimation in satoshis per vbyte for either all currencies or just a single one if specified
+   */
+  public getFeeEstimation = (currency?: string, blocks?: number) => {
+    const request = new boltzrpc.GetFeeEstimationRequest();
+
+    request.setCurrency(currency || '');
+    request.setBlocks(blocks || 0);
+
+    return this.unaryCall<boltzrpc.GetFeeEstimationRequest, boltzrpc.GetFeeEstimationResponse.AsObject>('getFeeEstimation', request);
+  }
+
+  /**
    * Broadcasts a hex encoded transaction on the specified network
    */
   public broadcastTransaction = (currency: string, transactionHex: string) => {

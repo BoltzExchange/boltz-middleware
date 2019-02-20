@@ -1,7 +1,7 @@
 import { Request, Response } from 'express';
-import Service from '../service/Service';
 import Logger from '../Logger';
 import { stringify } from '../Utils';
+import Service from '../service/Service';
 
 class Controller {
   // A map between the ids and HTTP responses of all pending swaps
@@ -18,16 +18,20 @@ class Controller {
     });
   }
 
+  // GET requests
   public getPairs = (_req: Request, res: Response) => {
-    const response = this.service.getPairs();
-    this.successResponse(res, response);
+    this.successResponse(res, this.service.getPairs());
   }
 
   public getLimits = async (_req: Request, res: Response) => {
-    const response = this.service.getLimits();
-    this.successResponse(res, response);
+    this.successResponse(res, this.service.getLimits());
   }
 
+  public getFeeEstimation = async (_req: Request, res: Response) => {
+    this.successResponse(res, await this.service.getFeeEstimation());
+  }
+
+  // POST requests
   public getTransaction = async (req: Request, res: Response) => {
     try {
       const { currency, transactionHash } = this.validateBody(req.body, [
@@ -96,6 +100,7 @@ class Controller {
     }
   }
 
+  // EventSource streams
   public swapStatus = (req: Request, res: Response) => {
     try {
       const { id } = this.validateBody(req.query, [
@@ -120,7 +125,7 @@ class Controller {
   }
 
   /**
-   * Makes sure that all required arguments were provided in the body correctly
+   * Validates that all required arguments were provided in the body correctly
    *
    * @returns the validated arguments
    */

@@ -205,6 +205,25 @@ class Service extends EventEmitter {
   }
 
   /**
+   *
+   */
+  public getFeeEstimation = async () => {
+    const feeEstimation = await this.boltz.getFeeEstimation('', 2);
+
+    const feeMapToObject = (feesMap: [string, number][]) => {
+      const response: any = {};
+
+      feesMap.forEach(([symbol, fee]) => {
+        response[symbol] = fee;
+      });
+
+      return response;
+    };
+
+    return feeMapToObject(feeEstimation.feesMap);
+  }
+
+  /**
    * Gets a hex encoded transaction from a transaction hash on the specified network
    */
   public getTransaction = (currency: string, transactionHash: string) => {
