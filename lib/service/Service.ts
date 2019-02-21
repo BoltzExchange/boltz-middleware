@@ -152,42 +152,9 @@ class Service extends EventEmitter {
 
     this.logger.verbose(`Initialised ${this.pairs.size} pairs: ${stringify(Array.from(this.pairs.keys()))}`);
 
-    const emitTransactionConfirmed = (id: string, transactionHash: string) =>
-      this.emit('swap.update', id, { message: `Transaction confirmed: ${transactionHash}` });
-
-    // Listen to events of the Boltz client
-    this.boltz.on('transaction.confirmed', (transactionHash: string, outputAddress: string) => {
-      this.pendingSwaps.forEach((swap, id) => {
-        if (swap.lockupAddress === outputAddress) {
-          emitTransactionConfirmed(id, transactionHash);
-        }
-      });
-
-      this.pendingReverseSwaps.forEach((swap, id) => {
-        if (swap.transactionHash === transactionHash) {
-          emitTransactionConfirmed(id, transactionHash);
-        }
-      });
-    });
-
-    this.boltz.on('invoice.paid', (invoice: string) => {
-      this.pendingSwaps.forEach((swap, id) => {
-        if (swap.invoice === invoice) {
-          this.emit('swap.update', id, { message: `Invoice paid: ${invoice}` });
-        }
-      });
-    });
-
-    this.boltz.on('invoice.settled', (invoice: string, preimage: string) => {
-      this.pendingReverseSwaps.forEach((swap, id) => {
-        if (swap.invoice === invoice) {
-          this.emit('swap.update', id, {
-            preimage,
-            message: `Invoice settled: ${invoice}`,
-          });
-        }
-      });
-    });
+    this.listenTransactions();
+    this.listenInvoices();
+    this.listenRefunds();
   }
 
   /**
@@ -372,6 +339,59 @@ class Service extends EventEmitter {
 
       default: throw Errors.ORDER_SIDE_NOT_SUPPORTED(orderSide);
     }
+  }
+
+  private listenTransactions = () => {
+    const emitTransactionConfirmed = (id: string, transactionHash: string) =>
+      this.emit('swap.update', id, { message: `Transaction confirmed: ${transactionHash}` });
+
+    // Listen to events of the Boltz client
+    this.boltz.on('transaction.confirmed', (transactionHash: string, outputAddress: string) => {
+      this.pendingSwaps.forEach((swap, id) => {
+        if (swap.lockupAddress === outputAddress) {
+          emitTransactionConfirmed(id, transactionHash);
+        }
+      });
+
+      this.pendingReverseSwaps.forEach((swap, id) => {
+        if (swap.transactionHash === transactionHash) {
+          emitTransactionConfirmed(id, transactionHash);
+        }
+      });
+    });
+  }
+
+  private listenInvoices = () => {
+    this.boltz.on('invoice.paid', (invoice: string) => {
+      this.pendingSwaps.forEach((swap, id) => {
+        if (swap.invoice === invoice) {
+          this.emit('swap.update', id, { message: `Invoice paid: ${invoice}` });
+        }
+      });
+    });
+
+    this.boltz.on('invoice.settled', (invoice: string, preimage: string) => {
+      this.pendingReverseSwaps.forEach((swap, id) => {
+        if (swap.invoice === invoice) {
+          this.emit('swap.update', id, {
+            preimage,
+            message: `Invoice settled: ${invoice}`,
+          });
+        }
+      });
+    });
+  }
+
+  private listenRefunds = () => {
+    this.boltz.on('refund', (lockupTransactionHash: string) => {
+      this.pendingReverseSwaps.forEach((swap, id) => {
+        if (swap.transactionHash === lockupTransactionHash) {
+          this.emit('swap.update', id, {
+            message: `Refunded lockup transaction: ${lockupTransactionHash}`,
+          });
+        }
+      });
+    });
   }
 }
 
