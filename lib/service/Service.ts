@@ -250,7 +250,7 @@ class Service extends EventEmitter {
 
     const { millisatoshis } = bolt11.decode(invoice);
 
-    this.verifyAmount(millisatoshis / 1000, pairId, side, rate);
+    this.verifyAmount(millisatoshis / 1000, pairId, side, false, rate);
 
     const {
       address,
@@ -290,7 +290,7 @@ class Service extends EventEmitter {
 
     const side = this.getOrderSide(orderSide);
 
-    this.verifyAmount(amount, pairId, side, rate);
+    this.verifyAmount(amount, pairId, side, true, rate);
 
     const {
       invoice,
@@ -342,8 +342,10 @@ class Service extends EventEmitter {
   /**
    * Verfies that the requested amount is neither above the maximal nor beneath the minimal
    */
-  private verifyAmount = (satoshis: number, pairId: string, orderSide: OrderSide, rate: number) => {
-    if (orderSide === OrderSide.SELL) {
+  private verifyAmount = (satoshis: number, pairId: string, orderSide: OrderSide, isReverse: boolean, rate: number) => {
+    if (
+      (!isReverse && orderSide === OrderSide.SELL) ||
+      (isReverse && orderSide === OrderSide.BUY)) {
       // tslint:disable-next-line:no-parameter-reassignment
       satoshis = satoshis * (1 / rate);
     }
