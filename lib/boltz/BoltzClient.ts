@@ -42,6 +42,9 @@ interface BoltzClient {
 
   on(even: 'invoice.settled', listener: (invoice: string, preimage: string) => void): this;
   emit(event: 'invoice.settled', invoice: string, preimage: string): boolean;
+
+  on(event: 'refund', listener: (lockupTransactionHash: string) => void): this;
+  emit(event: 'refund', lockupTransactionHash: string): boolean;
 }
 
 class BoltzClient extends BaseClient {
@@ -53,6 +56,7 @@ class BoltzClient extends BaseClient {
 
   private transactionSubscription?: ClientReadableStream<boltzrpc.SubscribeTransactionsResponse>;
   private invoicesSubscription?: ClientReadableStream<boltzrpc.SubscribeInvoicesResponse>;
+  private refundsSubscription?: ClientReadableStream<boltzrpc.SubscribeRefundsResponse>;
 
   private isReconnecting = false;
 
@@ -82,19 +86,6 @@ class BoltzClient extends BaseClient {
 
       await this.startReconnectTimer();
     }
-  }
-
-  /**
-   * Disconnects and stops trying to reconnect
-   */
-  public disconnect = async () => {
-    this.clearReconnectTimer();
-
-    if (this.transactionSubscription) {
-      this.transactionSubscription.cancel();
-    }
-
-    this.boltz.close();
   }
 
   /**
@@ -244,7 +235,7 @@ class BoltzClient extends BaseClient {
   }
 
   /**
-   * Subscribes to a stream of invoices paid by Boltz
+   * Subscribes to a stream of settled invoices and those paid by Boltz
    */
   public subscribeInvoices = () => {
     if (this.invoicesSubscription) {
@@ -267,6 +258,28 @@ class BoltzClient extends BaseClient {
         this.emit('status.updated', ConnectionStatus.Disconnected);
 
         this.logger.error(`Invoice subscription errored: ${stringify(error)}`);
+        await this.startReconnectTimer();
+      });
+  }
+
+  /**
+   * Subscribes to a stream of lockup transactions that Boltz refunds
+   */
+  public subscribeRefunds = () => {
+    if (this.refundsSubscription) {
+      this.refundsSubscription.cancel();
+    }
+
+    this.refundsSubscription = this.boltz.subscribeRefunds(new boltzrpc.SubscribeRefundsRequest(), this.meta)
+      .on('data', (response: boltzrpc.SubscribeRefundsResponse) => {
+        const lockupTransactionHash = response.getLockupTransactionHash();
+        this.logger.silly(`Refunded lockup transaction: ${lockupTransactionHash}`);
+        this.emit('refund', lockupTransactionHash);
+      })
+      .on('error', async (error) => {
+        this.emit('status.updated', ConnectionStatus.Disconnected);
+
+        this.logger.error(`Refunds subscription errored: ${stringify(error)}`);
         await this.startReconnectTimer();
       });
   }
@@ -295,6 +308,7 @@ class BoltzClient extends BaseClient {
 
       this.subscribeTransactions();
       this.subscribeInvoices();
+      this.subscribeRefunds();
     } catch (error) {
       this.logger.error(`Could not connect to Boltz: ${error.message}`);
       this.logger.verbose(`Retrying in ${this.RECONNECT_INTERVAL} ms`);
