@@ -54,7 +54,9 @@ class SlackClient extends EventEmitter {
 
     this.rtm.on('message', (message: Message) => {
       if (message.channel === this.channelId) {
-        this.emit('message', message.text);
+        if (message.text) {
+          this.emit('message', message.text);
+        }
       }
     });
   }
