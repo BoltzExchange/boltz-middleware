@@ -216,15 +216,17 @@ class Service extends EventEmitter {
     const lightningCurrency = side === OrderSide.BUY ? base : quote;
 
     const { millisatoshis } = bolt11.decode(invoice);
+    const satoshi = millisatoshis / 1000;
 
-    this.verifyAmount(millisatoshis / 1000, pairId, side, false, rate);
+    this.verifyAmount(satoshi, pairId, side, false, rate);
+    const fee = Math.ceil(10 + (satoshi * 0.01));
 
     const {
       address,
       redeemScript,
       expectedAmount,
       timeoutBlockHeight,
-    } = await this.boltz.createSwap(base, quote, side, rate, invoice, refundPublicKey, OutputType.COMPATIBILITY);
+    } = await this.boltz.createSwap(base, quote, side, rate, fee, invoice, refundPublicKey, OutputType.COMPATIBILITY);
     await this.boltz.listenOnAddress(chainCurrency, address);
 
     const id = generateId(6);
@@ -258,6 +260,7 @@ class Service extends EventEmitter {
     const side = this.getOrderSide(orderSide);
 
     this.verifyAmount(amount, pairId, side, true, rate);
+    const fee = Math.ceil(1000 + (amount * 0.01));
 
     const {
       invoice,
@@ -265,7 +268,7 @@ class Service extends EventEmitter {
       lockupAddress,
       lockupTransaction,
       lockupTransactionHash,
-    } = await this.boltz.createReverseSwap(base, quote, side, rate, claimPublicKey, amount);
+    } = await this.boltz.createReverseSwap(base, quote, side, rate, fee, claimPublicKey, amount);
 
     const chainCurrency = side === OrderSide.BUY ? base : quote;
     await this.boltz.listenOnAddress(chainCurrency, lockupAddress);

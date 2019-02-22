@@ -175,10 +175,11 @@ class BoltzClient extends BaseClient {
    * Creates a new Swap from the chain to Lightning
    */
   public createSwap = (baseCurrency: string, quoteCurrency: string, orderSide: boltzrpc.OrderSide, rate: number,
-    invoice: string, refundPublicKey: string, outputType?: boltzrpc.OutputType) => {
+    fee: number, invoice: string, refundPublicKey: string, outputType?: boltzrpc.OutputType) => {
 
     const request = new boltzrpc.CreateSwapRequest();
 
+    request.setFee(fee);
     request.setRate(rate);
     request.setInvoice(invoice);
     request.setOrderSide(orderSide);
@@ -198,10 +199,11 @@ class BoltzClient extends BaseClient {
    * Creates a new reverse Swap from Lightning to the chain
    */
   public createReverseSwap = (baseCurrency: string, quoteCurrency: string, orderSide: boltzrpc.OrderSide, rate: number,
-    claimPublicKey: string, amount: number) => {
+    fee: number, claimPublicKey: string, amount: number) => {
 
     const request = new boltzrpc.CreateReverseSwapRequest();
 
+    request.setFee(fee);
     request.setRate(rate);
     request.setAmount(amount);
     request.setOrderSide(orderSide);
