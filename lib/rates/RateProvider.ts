@@ -66,6 +66,9 @@ class RateProvider {
 
     await this.updateRates();
 
+    this.logger.debug(`Got rates: ${stringify(mapToObject(this.rates))}`);
+    this.logger.debug(`Got limits: ${stringify(mapToObject(this.limits))}`);
+
     this.logger.silly(`Updating rates every ${this.rateUpdateInterval} minutes`);
 
     this.timer = setInterval(async () => {
