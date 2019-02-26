@@ -53,11 +53,11 @@ class Config {
     };
 
     this.notification = {
-      name: '',
-      interval: 1,
-
       token: '',
       channel: '',
+
+      prefix: '',
+      interval: 1,
     };
 
     this.currencies = [

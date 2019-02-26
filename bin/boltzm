@@ -49,20 +49,20 @@ const { argv } = require('yargs').options({
     describe: 'Path to the SSL certificate of Boltz',
     type: 'string',
   },
-  'notification.name': {
-    describe: 'The name of this boltz instance',
+  'notification.token': {
+    describe: 'Discord bot token for the notification bot',
+    type: 'string',
+  },
+  'notification.channel': {
+    describe: 'Name of the Discord channel to which notifications should be sent',
+    type: 'string',
+  },
+  'notification.prefix': {
+    describe: 'The prefix of all messages of this boltz instance',
     type: 'string',
   },
   'notification.interval': {
     describe: 'Interval at which the balances and connection status of the backend should be checked in minutes',
-    type: 'string',
-  },
-  'notification.token': {
-    describe: 'Slack Bot user OAuth access token for the notification bot',
-    type: 'string',
-  },
-  'notification.channel': {
-    describe: 'Name of the Slack channel to which notifications should be sent',
     type: 'string',
   },
   currencies: {
