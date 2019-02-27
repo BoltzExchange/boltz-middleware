@@ -7,8 +7,13 @@ class Controller {
   // A map between the ids and HTTP responses of all pending swaps
   private pendingSwaps = new Map<string, Response>();
 
+  // A map between the ids and statuses of the swaps
+  private pendingSwapInfos = new Map<string, Object>();
+
   constructor(private logger: Logger, private service: Service) {
     this.service.on('swap.update', (id: string, message: object) => {
+      this.pendingSwapInfos.set(id, message);
+
       const response = this.pendingSwaps.get(id);
 
       if (response) {
@@ -32,6 +37,24 @@ class Controller {
   }
 
   // POST requests
+  public swapStatus = async (req: Request, res: Response) => {
+    try {
+      const { id } = this.validateBody(req.body, [
+        { name: 'id', type: 'string' },
+      ]);
+
+      const response = this.pendingSwapInfos.get(id);
+
+      if (response) {
+        this.successResponse(res, response);
+      } else {
+        this.successResponse(res, { message: `Could not find swap with id: ${id}` });
+      }
+    } catch (error) {
+      this.errorResponse(res, error);
+    }
+  }
+
   public getTransaction = async (req: Request, res: Response) => {
     try {
       const { currency, transactionHash } = this.validateBody(req.body, [
@@ -42,7 +65,7 @@ class Controller {
       const response = await this.service.getTransaction(currency, transactionHash);
       this.successResponse(res, response);
     } catch (error) {
-      this.writeErrorResponse(res, error);
+      this.errorResponse(res, error);
     }
   }
 
@@ -56,7 +79,7 @@ class Controller {
       const response = await this.service.broadcastTransaction(currency, transactionHex);
       this.successResponse(res, response);
     } catch (error) {
-      this.writeErrorResponse(res, error);
+      this.errorResponse(res, error);
     }
   }
 
@@ -74,9 +97,9 @@ class Controller {
       this.logger.verbose(`Created new swap with id: ${response.id}`);
       this.logger.silly(`Swap ${response.id}: ${stringify(response)}`);
 
-      this.swapCreatedResponse(res, response);
+      this.createdResponse(res, response);
     } catch (error) {
-      this.writeErrorResponse(res, error);
+      this.errorResponse(res, error);
     }
   }
 
@@ -94,14 +117,14 @@ class Controller {
       this.logger.verbose(`Created reverse swap with id: ${response.id}`);
       this.logger.silly(`Reverse swap ${response.id}: ${stringify(response)}`);
 
-      this.swapCreatedResponse(res, response);
+      this.createdResponse(res, response);
     } catch (error) {
-      this.writeErrorResponse(res, error);
+      this.errorResponse(res, error);
     }
   }
 
   // EventSource streams
-  public swapStatus = (req: Request, res: Response) => {
+  public streamSwapStatus = (req: Request, res: Response) => {
     try {
       const { id } = this.validateBody(req.query, [
         { name: 'id', type: 'string' },
@@ -120,7 +143,7 @@ class Controller {
         this.pendingSwaps.delete(id);
       });
     } catch (error) {
-      this.writeErrorResponse(res, error);
+      this.errorResponse(res, error);
     }
   }
 
@@ -149,7 +172,7 @@ class Controller {
     return response;
   }
 
-  private writeErrorResponse = (res: Response, error: any) => {
+  private errorResponse = (res: Response, error: any) => {
     if (typeof error === 'string') {
       this.invalidArgumentsResponse(res, error);
     } else {
@@ -162,7 +185,7 @@ class Controller {
     res.status(200).json(data);
   }
 
-  private swapCreatedResponse = (res: Response, data: object) => {
+  private createdResponse = (res: Response, data: object) => {
     this.setContentTypeJson(res);
     res.status(201).json(data);
   }

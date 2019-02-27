@@ -216,7 +216,7 @@ class Service extends EventEmitter {
     const lightningCurrency = side === OrderSide.BUY ? base : quote;
 
     const { millisatoshis } = bolt11.decode(invoice);
-    const satoshi = millisatoshis / 1000;
+    const satoshi = Number(millisatoshis) / 1000;
 
     this.verifyAmount(satoshi, pairId, side, false, rate);
     const fee = Math.ceil(10 + (satoshi * 0.01));
