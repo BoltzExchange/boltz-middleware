@@ -37,6 +37,8 @@ class Api {
     this.app.route('/getfeeestimation').get(controller.getFeeEstimation);
 
     // POST requests
+    this.app.route('/swapstatus').post(controller.swapStatus);
+
     this.app.route('/gettransaction').post(controller.getTransaction);
     this.app.route('/broadcasttransaction').post(controller.broadcastTransaction);
 
@@ -44,7 +46,7 @@ class Api {
     this.app.route('/createreverseswap').post(controller.createReverseSwap);
 
     // EventSource streams
-    this.app.route('/swapstatus').get(controller.swapStatus);
+    this.app.route('/streamswapstatus').get(controller.streamSwapStatus);
   }
 }
 
