@@ -1,15 +1,15 @@
 import Logger from '../Logger';
-import SlackClient from './SlackClient';
+import DiscordClient, { Command } from './DiscordClient';
 import { Balance, OutputType } from '../proto/boltzrpc_pb';
 import BoltzClient, { ConnectionStatus } from '../boltz/BoltzClient';
 import { minutesToMilliseconds, satoshisToWholeCoins } from '../Utils';
 
 type NotificationConfig = {
-  name: string;
-  interval: number;
-
   token: string;
   channel: string;
+
+  prefix: string;
+  interval: number;
 };
 
 type CurrencyConfig = {
@@ -23,8 +23,8 @@ type CurrencyConfig = {
 };
 
 class NotificationProvider {
-  private slack: SlackClient;
   private timer!: NodeJS.Timer;
+  private discord: DiscordClient;
 
   // These Sets contain the symbols for which an alert notification was sent
   private walletAlerts = new Set<string>();
@@ -38,7 +38,11 @@ class NotificationProvider {
     private config: NotificationConfig,
     private currencies: CurrencyConfig[]) {
 
-    this.slack = new SlackClient(config.token, config.channel, config.name);
+    this.discord = new DiscordClient(
+      config.token,
+      config.channel,
+      config.prefix,
+    );
 
     this.listenToBoltz();
     this.listenForCommands();
@@ -46,11 +50,10 @@ class NotificationProvider {
 
   public init = async () => {
     try {
-      await this.slack.init();
-      await this.slack.listenToMessages();
+      await this.discord.init();
 
-      await this.slack.sendMessage('Started Boltz instance');
-      this.logger.verbose('Connected to Slack');
+      await this.discord.sendMessage('Started Boltz instance');
+      this.logger.verbose('Connected to Discord');
 
       const check = async () => {
         await this.checkConnections();
@@ -65,7 +68,7 @@ class NotificationProvider {
         await check();
       }, minutesToMilliseconds(this.config.interval));
     } catch (error) {
-      this.logger.warn(`Could not connect to Slack: ${error}`);
+      this.logger.warn(`Could not connect to Discord: ${error}`);
     }
   }
 
@@ -155,9 +158,9 @@ class NotificationProvider {
   }
 
   private listenForCommands = () => {
-    this.slack.on('message', async (message: string) => {
-      switch (message.toLowerCase()) {
-        case 'getbalance':
+    this.discord.on('command', async (command: Command) => {
+      switch (command) {
+        case Command.GetBalance:
           await this.sendBalance();
           break;
       }
@@ -175,15 +178,15 @@ class NotificationProvider {
     this.logger.warn(`${currency} ${walletName} balance is less than ${expectedBalance}: ${actualBalance}`);
 
     // tslint:disable-next-line:prefer-template
-    let slackMessage = ':rotating_light: *Alert* :rotating_light:\n\n' +
+    let message = ':rotating_light: **Alert** :rotating_light:\n\n' +
       `The ${currency} ${walletName} balance of ${actual} ${currency} is less than expected ${expected} ${currency}\n\n` +
-      `Funds missing: *${missing} ${currency}*`;
+      `Funds missing: **${missing} ${currency}**`;
 
     if (isWallet) {
-      slackMessage += `\nDeposit address: *${address}*`;
+      message += `\nDeposit address: **${address}**`;
     }
 
-    await this.slack.sendMessage(slackMessage);
+    await this.discord.sendMessage(message);
   }
 
   private sendRelief = async (currency: string, isWallet: boolean, expectedBalance: number, actualBalance: number) => {
@@ -192,7 +195,7 @@ class NotificationProvider {
 
     this.logger.info(`${currency} ${walletName} balance is more than expected ${expectedBalance} again: ${actualBalance}`);
 
-    await this.slack.sendMessage(
+    await this.discord.sendMessage(
       `The ${currency} ${walletName} balance of ${actual} ${currency} is more than expected ${expected} ${currency} again`,
     );
   }
@@ -207,20 +210,20 @@ class NotificationProvider {
       const balance = value[1];
 
       // tslint:disable-next-line:prefer-template
-      message += `\n\n*${symbol}*\n` +
+      message += `\n\n**${symbol}**\n` +
         `Wallet: ${satoshisToWholeCoins(balance.walletBalance!.totalBalance)} ${symbol}\n` +
         `Channels: ${satoshisToWholeCoins(balance.channelBalance)} ${symbol}`;
     });
 
-    await this.slack.sendMessage(message);
+    await this.discord.sendMessage(message);
   }
 
   private sendLostConnection = async (service: string) => {
-    await this.slack.sendMessage(`*Lost connection to ${service}*`);
+    await this.discord.sendMessage(`**Lost connection to ${service}**`);
   }
 
   private sendReconnected = async (service: string) => {
-    await this.slack.sendMessage(`Reconnected to ${service}`);
+    await this.discord.sendMessage(`Reconnected to ${service}`);
   }
 
   private formatBalances = (expectedBalance: number, actualBalance: number) => {
