@@ -137,6 +137,8 @@ class Controller {
         Connection: 'keep-alive',
       });
 
+      res.setTimeout(0);
+
       this.pendingSwaps.set(id, res);
 
       res.on('close', () => {
