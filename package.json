@@ -45,7 +45,7 @@
     "url": "git+https://github.com/BoltzExchange/boltz-middleware.git"
   },
   "dependencies": {
-    "@boltz/bolt11": "^1.2.3",
+    "@boltz/bolt11": "^1.2.5",
     "axios": "^0.18.0",
     "bluebird": "^3.5.3",
     "cors": "^2.8.5",
