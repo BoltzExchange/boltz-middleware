@@ -40,6 +40,9 @@ interface BoltzClient {
   on(even: 'invoice.paid', listener: (invoice: string) => void): this;
   emit(event: 'invoice.paid', invoice: string): boolean;
 
+  on(event: 'invoice.failedToPay', listener: (invoice: string) => void): this;
+  emit(event: 'invoice.failedToPay', invoice: string): boolean;
+
   on(even: 'invoice.settled', listener: (invoice: string, preimage: string) => void): this;
   emit(event: 'invoice.settled', invoice: string, preimage: string): boolean;
 
@@ -248,12 +251,24 @@ class BoltzClient extends BaseClient {
       .on('data', (response: boltzrpc.SubscribeInvoicesResponse) => {
         const invoice = response.getInvoice();
 
-        if (response.getEvent() === boltzrpc.InvoiceEvent.PAID) {
-          this.logger.silly(`Invoice paid: ${invoice}`);
-          this.emit('invoice.paid', invoice);
-        } else {
-          this.logger.silly(`Invoice settled: ${invoice}`);
-          this.emit('invoice.settled', invoice, response.getPreimage());
+        switch (response.getEvent()) {
+          case boltzrpc.InvoiceEvent.PAID:
+            this.logger.silly(`Invoice paid: ${invoice}`);
+            this.emit('invoice.paid', invoice);
+
+            break;
+
+          case boltzrpc.InvoiceEvent.FAILED_TO_PAY:
+            this.logger.silly(`Failed to pay invoice: ${invoice}`);
+            this.emit('invoice.failedToPay', invoice);
+
+            break;
+
+          case boltzrpc.InvoiceEvent.SETTLED:
+            this.logger.silly(`Invoice settled: ${invoice}`);
+            this.emit('invoice.settled', invoice, response.getPreimage());
+
+            break;
         }
       })
       .on('error', async (error) => {
