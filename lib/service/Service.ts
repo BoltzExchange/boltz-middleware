@@ -36,16 +36,35 @@ type PendingReverseSwap = {
   transactionHash: string;
 };
 
+// Enums and types related to swap updates
+enum SwapUpdateEvent {
+  InvoicePaid = 'invoice.paid',
+  InvoiceSettled = 'invoice.settled',
+  InvoiceFailedToPay = 'invoice.failedToPay',
+
+  TransactionRefunded = 'transaction.refunded',
+  TransactionConfirmed = 'transaction.confirmed',
+}
+
+type SwapUpdate = {
+  event: SwapUpdateEvent,
+
+  invoice?: string;
+  preimage?: string;
+
+  transactionId?: string;
+};
+
 interface Service {
-  on(event: 'swap.update', listener: (id: string, message: object) => void): this;
-  emit(event: 'swap.update', id: string, message: object): boolean;
+  on(event: 'swap.update', listener: (id: string, update: SwapUpdate) => void): this;
+  emit(event: 'swap.update', id: string, update: SwapUpdate): boolean;
 }
 
 class Service extends EventEmitter {
   // A map between the ids and details of all pending swaps
   private pendingSwaps = new Map<string, PendingSwap>();
 
-  // A map between the ids and detials of all pending reverse swaps
+  // A map between the ids and details of all pending reverse swaps
   private pendingReverseSwaps = new Map<string, PendingReverseSwap>();
 
   private rateProvider: RateProvider;
@@ -347,54 +366,85 @@ class Service extends EventEmitter {
 
   private listenTransactions = () => {
     const emitTransactionConfirmed = (id: string, transactionHash: string) =>
-      this.emit('swap.update', id, { message: `Transaction confirmed: ${transactionHash}` });
+      this.emit('swap.update', id, {
+        event: SwapUpdateEvent.TransactionConfirmed,
+        transactionId: transactionHash,
+      });
 
     // Listen to events of the Boltz client
     this.boltz.on('transaction.confirmed', (transactionHash: string, outputAddress: string) => {
-      this.pendingSwaps.forEach((swap, id) => {
+      for (const [id, swap] of this.pendingSwaps) {
         if (swap.lockupAddress === outputAddress) {
           emitTransactionConfirmed(id, transactionHash);
-        }
-      });
 
-      this.pendingReverseSwaps.forEach((swap, id) => {
+          break;
+        }
+      }
+
+      for (const [id, swap] of this.pendingReverseSwaps) {
         if (swap.transactionHash === transactionHash) {
           emitTransactionConfirmed(id, transactionHash);
+
+          break;
         }
-      });
+      }
     });
   }
 
   private listenInvoices = () => {
     this.boltz.on('invoice.paid', (invoice: string) => {
-      this.pendingSwaps.forEach((swap, id) => {
+      for (const [id, swap] of this.pendingSwaps) {
         if (swap.invoice === invoice) {
-          this.emit('swap.update', id, { message: `Invoice paid: ${invoice}` });
+          this.emit('swap.update', id, {
+            invoice,
+            event: SwapUpdateEvent.InvoicePaid,
+          });
+
+          break;
         }
-      });
+      }
+    });
+
+    this.boltz.on('invoice.failedToPay', (invoice: string) => {
+      for (const [id, swap] of this.pendingSwaps) {
+        if (swap.invoice === invoice) {
+          this.emit('swap.update', id, {
+            invoice,
+            event: SwapUpdateEvent.InvoiceFailedToPay,
+          });
+
+          break;
+        }
+      }
     });
 
     this.boltz.on('invoice.settled', (invoice: string, preimage: string) => {
-      this.pendingReverseSwaps.forEach((swap, id) => {
-        if (swap.invoice === invoice) {
+      for (const [id, reverseSwap] of this.pendingReverseSwaps) {
+        if (reverseSwap.invoice === invoice) {
           this.emit('swap.update', id, {
+            invoice,
             preimage,
-            message: `Invoice settled: ${invoice}`,
+            event: SwapUpdateEvent.InvoiceSettled,
           });
+
+          break;
         }
-      });
+      }
     });
   }
 
   private listenRefunds = () => {
     this.boltz.on('refund', (lockupTransactionHash: string) => {
-      this.pendingReverseSwaps.forEach((swap, id) => {
+      for (const [id, swap] of this.pendingReverseSwaps) {
         if (swap.transactionHash === lockupTransactionHash) {
           this.emit('swap.update', id, {
-            message: `Refunded lockup transaction: ${lockupTransactionHash}`,
+            event: SwapUpdateEvent.TransactionRefunded,
+            transactionId: lockupTransactionHash,
           });
+
+          break;
         }
-      });
+      }
     });
   }
 }
