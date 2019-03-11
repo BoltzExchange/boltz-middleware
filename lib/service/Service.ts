@@ -3,15 +3,18 @@ import { EventEmitter } from 'events';
 import Errors from './Errors';
 import Logger from '../Logger';
 import Database from '../db/Database';
+import { SwapUpdate } from '../consts/Types';
+import SwapRepository from './SwapRepository';
 import PairRepository from './PairRepository';
 import BoltzClient from '../boltz/BoltzClient';
 import RateProvider from '../rates/RateProvider';
 import { SwapUpdateEvent } from '../consts/Enums';
 import { encodeBip21 } from './PaymentRequestUtils';
-import { PairInstance, PairFactory } from '../consts/Database';
+import ReverseSwapRepository from './ReverseSwapRepository';
 import { CurrencyConfig } from '../notifications/NotificationProvider';
 import { OrderSide, OutputType, CurrencyInfo } from '../proto/boltzrpc_pb';
 import { splitPairId, stringify, generateId, mapToObject, satoshisToWholeCoins } from '../Utils';
+import { PairInstance, PairFactory, SwapInstance, ReverseSwapInstance } from '../consts/Database';
 
 type PairConfig = {
   base: string;
@@ -27,39 +30,19 @@ type Pair = {
   quote: string;
 };
 
-type PendingSwap = {
-  invoice: string;
-  lockupAddress: string;
-};
-
-type PendingReverseSwap = {
-  invoice: string;
-  transactionHash: string;
-};
-
-type SwapUpdate = {
-  event: SwapUpdateEvent,
-
-  invoice?: string;
-  preimage?: string;
-
-  transactionId?: string;
-};
-
 interface Service {
-  on(event: 'swap.update', listener: (id: string, update: SwapUpdate) => void): this;
-  emit(event: 'swap.update', id: string, update: SwapUpdate): boolean;
+  on(event: 'swap.update', listener: (id: string, message: SwapUpdate) => void): this;
+  emit(event: 'swap.update', id: string, message: SwapUpdate): boolean;
 }
 
+// TODO: do not override invoice settled status with transaction confirmed and invoice paid with with transaction confirmed
 class Service extends EventEmitter {
-  // A map between the ids and details of all pending swaps
-  private pendingSwaps = new Map<string, PendingSwap>();
+  public swapRepository: SwapRepository;
+  public reverseSwapRepository: ReverseSwapRepository;
 
-  // A map between the ids and details of all pending reverse swaps
-  private pendingReverseSwaps = new Map<string, PendingReverseSwap>();
+  private pairRepository: PairRepository;
 
   private rateProvider: RateProvider;
-  private pairRepository: PairRepository;
 
   private pairs = new Map<string, Pair>();
 
@@ -72,8 +55,11 @@ class Service extends EventEmitter {
 
     super();
 
-    this.rateProvider = new RateProvider(this.logger, rateInterval, currencies);
     this.pairRepository = new PairRepository(db.models);
+    this.swapRepository = new SwapRepository(db.models);
+    this.reverseSwapRepository = new ReverseSwapRepository(db.models);
+
+    this.rateProvider = new RateProvider(this.logger, rateInterval, currencies);
   }
 
   public init = async (pairs: PairConfig[]) => {
@@ -242,10 +228,16 @@ class Service extends EventEmitter {
 
     const id = generateId(6);
 
-    this.pendingSwaps.set(id, {
-      invoice,
-      lockupAddress: address,
-    });
+    try {
+      await this.swapRepository.addSwap({
+        id,
+        invoice,
+        pair: pairId,
+        lockupAddress: address,
+      });
+    } catch (error) {
+      throw Errors.SWAP_WITH_INVOICE_EXISTS_ALREADY(invoice);
+    }
 
     return {
       id,
@@ -286,9 +278,11 @@ class Service extends EventEmitter {
 
     const id = generateId(6);
 
-    this.pendingReverseSwaps.set(id, {
+    await this.reverseSwapRepository.addReverseSwap({
+      id,
       invoice,
-      transactionHash: lockupTransactionHash,
+      pair: pairId,
+      transactionId: lockupTransactionHash,
     });
 
     return {
@@ -356,87 +350,88 @@ class Service extends EventEmitter {
   }
 
   private listenTransactions = () => {
-    const emitTransactionConfirmed = (id: string, transactionHash: string) =>
-      this.emit('swap.update', id, {
-        event: SwapUpdateEvent.TransactionConfirmed,
-        transactionId: transactionHash,
+    this.boltz.on('transaction.confirmed', async (transactionId: string, outputAddress: string) => {
+      const swap = await this.swapRepository.getSwap({
+        lockupAddress: outputAddress,
       });
 
-    // Listen to events of the Boltz client
-    this.boltz.on('transaction.confirmed', (transactionHash: string, outputAddress: string) => {
-      for (const [id, swap] of this.pendingSwaps) {
-        if (swap.lockupAddress === outputAddress) {
-          emitTransactionConfirmed(id, transactionHash);
-
-          break;
+      if (swap) {
+        if (!swap.status) {
+          await this.updateSwapStatus<SwapInstance>(swap, SwapUpdateEvent.TransactionConfirmed, this.swapRepository.setSwapStatus);
         }
       }
 
-      for (const [id, swap] of this.pendingReverseSwaps) {
-        if (swap.transactionHash === transactionHash) {
-          emitTransactionConfirmed(id, transactionHash);
+      const reverseSwap = await this.reverseSwapRepository.getReverseSwap({
+        transactionId,
+      });
 
-          break;
+      if (reverseSwap) {
+        if (!reverseSwap.status) {
+          await this.updateSwapStatus<ReverseSwapInstance>(
+            reverseSwap,
+            SwapUpdateEvent.TransactionConfirmed,
+            this.reverseSwapRepository.setReverseSwapStatus,
+          );
         }
       }
     });
   }
 
   private listenInvoices = () => {
-    this.boltz.on('invoice.paid', (invoice: string) => {
-      for (const [id, swap] of this.pendingSwaps) {
-        if (swap.invoice === invoice) {
-          this.emit('swap.update', id, {
-            invoice,
-            event: SwapUpdateEvent.InvoicePaid,
-          });
+    this.boltz.on('invoice.paid', async (invoice: string) => {
+      const swap = await this.swapRepository.getSwap({
+        invoice,
+      });
 
-          break;
-        }
-      }
+      await this.updateSwapStatus<SwapInstance>(swap, SwapUpdateEvent.InvoicePaid, this.swapRepository.setSwapStatus);
     });
 
-    this.boltz.on('invoice.failedToPay', (invoice: string) => {
-      for (const [id, swap] of this.pendingSwaps) {
-        if (swap.invoice === invoice) {
-          this.emit('swap.update', id, {
-            invoice,
-            event: SwapUpdateEvent.InvoiceFailedToPay,
-          });
+    this.boltz.on('invoice.failedToPay', async (invoice: string) => {
+      const swap = await this.swapRepository.getSwap({
+        invoice,
+      });
 
-          break;
-        }
-      }
+      await this.updateSwapStatus<SwapInstance>(swap, SwapUpdateEvent.InvoiceFailedToPay, this.swapRepository.setSwapStatus);
     });
 
-    this.boltz.on('invoice.settled', (invoice: string, preimage: string) => {
-      for (const [id, reverseSwap] of this.pendingReverseSwaps) {
-        if (reverseSwap.invoice === invoice) {
-          this.emit('swap.update', id, {
-            invoice,
+    this.boltz.on('invoice.settled', async (invoice: string, preimage: string) => {
+      const reverseSwap = await this.reverseSwapRepository.getReverseSwap({
+        invoice,
+      });
+
+      if (reverseSwap) {
+        await this.reverseSwapRepository.updateReverseSwap(
+          reverseSwap,
+          {
             preimage,
-            event: SwapUpdateEvent.InvoiceSettled,
-          });
+            status: SwapUpdateEvent.InvoiceSettled,
+          },
+        );
 
-          break;
-        }
+        this.emit('swap.update', reverseSwap.id, { preimage, event: SwapUpdateEvent.InvoiceSettled });
       }
     });
   }
 
   private listenRefunds = () => {
-    this.boltz.on('refund', (lockupTransactionHash: string) => {
-      for (const [id, swap] of this.pendingReverseSwaps) {
-        if (swap.transactionHash === lockupTransactionHash) {
-          this.emit('swap.update', id, {
-            event: SwapUpdateEvent.TransactionRefunded,
-            transactionId: lockupTransactionHash,
-          });
+    this.boltz.on('refund', async (transactionId: string) => {
+      const reverseSwap = await this.reverseSwapRepository.getReverseSwap({
+        transactionId,
+      });
 
-          break;
-        }
-      }
+      await this.updateSwapStatus<ReverseSwapInstance>(
+        reverseSwap,
+        SwapUpdateEvent.TransactionRefunded,
+        this.reverseSwapRepository.setReverseSwapStatus,
+      );
     });
+  }
+
+  private updateSwapStatus = async <T>(instance: T | null, event: SwapUpdateEvent, databaseUpdate: (instance: T, status: string) => Promise<T>) => {
+    if (instance) {
+      await databaseUpdate(instance, event);
+      this.emit('swap.update', instance['id'], { event });
+    }
   }
 }
 

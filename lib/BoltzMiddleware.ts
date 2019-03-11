@@ -55,7 +55,7 @@ class BoltzMiddleware {
     await this.service.init(this.config.pairs);
     await this.notifications.init();
 
-    this.api.init();
+    await this.api.init();
   }
 }
 

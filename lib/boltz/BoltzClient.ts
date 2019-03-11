@@ -228,7 +228,7 @@ class BoltzClient extends BaseClient {
 
     this.transactionSubscription = this.boltz.subscribeTransactions(new boltzrpc.SubscribeTransactionsRequest(), this.meta)
       .on('data', (response: boltzrpc.SubscribeTransactionsResponse) => {
-        this.logger.silly(`Found transaction to address ${response.getOutputAddress()} confirmed: ${response.getTransactionHash()}`);
+        this.logger.debug(`Found transaction to address ${response.getOutputAddress()} confirmed: ${response.getTransactionHash()}`);
         this.emit('transaction.confirmed', response.getTransactionHash(), response.getOutputAddress());
       })
       .on('error', async (error) => {
@@ -253,19 +253,19 @@ class BoltzClient extends BaseClient {
 
         switch (response.getEvent()) {
           case boltzrpc.InvoiceEvent.PAID:
-            this.logger.silly(`Invoice paid: ${invoice}`);
+            this.logger.debug(`Invoice paid: ${invoice}`);
             this.emit('invoice.paid', invoice);
 
             break;
 
           case boltzrpc.InvoiceEvent.FAILED_TO_PAY:
-            this.logger.silly(`Failed to pay invoice: ${invoice}`);
+            this.logger.debug(`Failed to pay invoice: ${invoice}`);
             this.emit('invoice.failedToPay', invoice);
 
             break;
 
           case boltzrpc.InvoiceEvent.SETTLED:
-            this.logger.silly(`Invoice settled: ${invoice}`);
+            this.logger.debug(`Invoice settled: ${invoice}`);
             this.emit('invoice.settled', invoice, response.getPreimage());
 
             break;
@@ -290,7 +290,7 @@ class BoltzClient extends BaseClient {
     this.refundsSubscription = this.boltz.subscribeRefunds(new boltzrpc.SubscribeRefundsRequest(), this.meta)
       .on('data', (response: boltzrpc.SubscribeRefundsResponse) => {
         const lockupTransactionHash = response.getLockupTransactionHash();
-        this.logger.silly(`Refunded lockup transaction: ${lockupTransactionHash}`);
+        this.logger.debug(`Refunded lockup transaction: ${lockupTransactionHash}`);
         this.emit('refund', lockupTransactionHash);
       })
       .on('error', async (error) => {

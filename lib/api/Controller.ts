@@ -2,16 +2,17 @@ import { Request, Response } from 'express';
 import Logger from '../Logger';
 import { stringify } from '../Utils';
 import Service from '../service/Service';
+import { SwapUpdateEvent } from '../consts/Enums';
 
 class Controller {
   // A map between the ids and HTTP responses of all pending swaps
   private pendingSwaps = new Map<string, Response>();
 
   // A map between the ids and statuses of the swaps
-  private pendingSwapInfos = new Map<string, Object>();
+  private pendingSwapInfos = new Map<string, object>();
 
   constructor(private logger: Logger, private service: Service) {
-    this.service.on('swap.update', (id: string, message: object) => {
+    this.service.on('swap.update', (id, message) => {
       this.pendingSwapInfos.set(id, message);
 
       const response = this.pendingSwaps.get(id);
@@ -19,6 +20,32 @@ class Controller {
       if (response) {
         this.logger.debug(`Swap ${id} update: ${stringify(message)}`);
         response.write(`data: ${JSON.stringify(message)}\n\n`);
+      }
+    });
+  }
+
+  public init = async () => {
+    // Get the latest status of all swaps in the database
+    const [swaps, reverseSwaps] = await Promise.all([
+      this.service.swapRepository.getSwaps(),
+      this.service.reverseSwapRepository.getReverseSwaps(),
+    ]);
+
+    swaps.forEach((swap) => {
+      if (swap.status) {
+        this.pendingSwapInfos.set(swap.id, { event: swap.status });
+      }
+    });
+
+    reverseSwaps.forEach((reverseSwap) => {
+      if (reverseSwap.status) {
+        const event = reverseSwap.status;
+
+        if (event !== SwapUpdateEvent.InvoiceSettled) {
+          this.pendingSwapInfos.set(reverseSwap.id, { event });
+        } else {
+          this.pendingSwapInfos.set(reverseSwap.id, { event, preimage: reverseSwap.preimage! });
+        }
       }
     });
   }
@@ -131,9 +158,9 @@ class Controller {
       ]);
 
       res.writeHead(200, {
-        'Content-Type': 'text/event-stream',
-        'Cache-Control': 'no-cache',
         'X-Accel-Buffering': 'no',
+        'Cache-Control': 'no-cache',
+        'Content-Type': 'text/event-stream',
         Connection: 'keep-alive',
       });
 

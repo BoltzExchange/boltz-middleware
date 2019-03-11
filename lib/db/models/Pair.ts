@@ -1,6 +1,6 @@
 import Sequelize from 'sequelize';
-import * as db from '../../consts/Database';
 import { getPairId } from '../../Utils';
+import * as db from '../../consts/Database';
 
 export default (sequelize: Sequelize.Sequelize, dataTypes: Sequelize.DataTypes) => {
   const attributes: db.SequelizeAttributes<db.PairAttributes> = {
