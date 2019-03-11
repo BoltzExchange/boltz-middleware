@@ -48,7 +48,7 @@ class Controller {
       if (response) {
         this.successResponse(res, response);
       } else {
-        this.successResponse(res, { message: `Could not find swap with id: ${id}` });
+        this.errorResponse(res, `could not find swap with id: ${id}`, 404);
       }
     } catch (error) {
       this.errorResponse(res, error);
@@ -174,11 +174,11 @@ class Controller {
     return response;
   }
 
-  private errorResponse = (res: Response, error: any) => {
+  private errorResponse = (res: Response, error: any, statusCode = 400) => {
     if (typeof error === 'string') {
-      this.invalidArgumentsResponse(res, error);
+      this.invalidArgumentsResponse(res, statusCode, error);
     } else {
-      this.invalidArgumentsResponse(res, error.message);
+      this.invalidArgumentsResponse(res, statusCode, error.message);
     }
   }
 
@@ -192,11 +192,11 @@ class Controller {
     res.status(201).json(data);
   }
 
-  private invalidArgumentsResponse = (res: Response, error: string) => {
+  private invalidArgumentsResponse = (res: Response, statusCode: number, error: string) => {
     this.logger.warn(`Request failed: ${error}`);
 
     this.setContentTypeJson(res);
-    res.status(400).json({ error });
+    res.status(statusCode).json({ error });
   }
 
   private setContentTypeJson = (res: Response) => {

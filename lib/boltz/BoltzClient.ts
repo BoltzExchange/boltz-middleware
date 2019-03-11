@@ -4,8 +4,8 @@ import Errors from './Errors';
 import Logger from '../Logger';
 import { stringify } from '../Utils';
 import BaseClient from '../BaseClient';
+import { ClientStatus } from '../consts/Enums';
 import * as boltzrpc from '../proto/boltzrpc_pb';
-import { ClientStatus } from '../consts/ClientStatus';
 import { BoltzClient as GrpcClient } from '../proto/boltzrpc_grpc_pb';
 
 /**

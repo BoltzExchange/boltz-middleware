@@ -1,6 +1,6 @@
 import { Error } from '../consts/Types';
-import { ErrorCodePrefix } from '../consts/ErrorCodePrefix';
 import { concatErrorCode } from '../Utils';
+import { ErrorCodePrefix } from '../consts/Enums';
 
 export default {
   CURRENCY_NOT_SUPPORTED_BY_BACKEND: (currency: string): Error => ({
