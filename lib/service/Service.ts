@@ -6,6 +6,7 @@ import Database from '../db/Database';
 import PairRepository from './PairRepository';
 import BoltzClient from '../boltz/BoltzClient';
 import RateProvider from '../rates/RateProvider';
+import { SwapUpdateEvent } from '../consts/Enums';
 import { encodeBip21 } from './PaymentRequestUtils';
 import { PairInstance, PairFactory } from '../consts/Database';
 import { CurrencyConfig } from '../notifications/NotificationProvider';
@@ -35,16 +36,6 @@ type PendingReverseSwap = {
   invoice: string;
   transactionHash: string;
 };
-
-// Enums and types related to swap updates
-enum SwapUpdateEvent {
-  InvoicePaid = 'invoice.paid',
-  InvoiceSettled = 'invoice.settled',
-  InvoiceFailedToPay = 'invoice.failedToPay',
-
-  TransactionRefunded = 'transaction.refunded',
-  TransactionConfirmed = 'transaction.confirmed',
-}
 
 type SwapUpdate = {
   event: SwapUpdateEvent,
