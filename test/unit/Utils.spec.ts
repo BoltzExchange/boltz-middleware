@@ -3,7 +3,7 @@ import os from 'os';
 import * as utils from '../../lib/Utils';
 import { PairFactory } from '../../lib/consts/Database';
 
-describe('utils', () => {
+describe('Utils', () => {
   const randomRange = (max: number): number => {
     return Math.floor(Math.random() * Math.floor(max));
   };
