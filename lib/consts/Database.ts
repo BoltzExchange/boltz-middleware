@@ -25,3 +25,27 @@ export type PairAttributes = PairFactory & {
 };
 
 export type PairInstance = PairAttributes & Sequelize.Instance<PairAttributes>;
+
+type Swap = {
+  id: string;
+  pair: string;
+  status?: string;
+  invoice: string;
+};
+
+export type SwapFactory = Swap & {
+  lockupAddress: string;
+};
+
+export type SwapAttributes = SwapFactory;
+
+export type SwapInstance = SwapFactory & Sequelize.Instance<SwapAttributes>;
+
+export type ReverseSwapFactory = Swap & {
+  preimage?: string;
+  transactionId: string;
+};
+
+export type ReverseSwapAttributes = ReverseSwapFactory;
+
+export type ReverseSwapInstance = ReverseSwapFactory & Sequelize.Instance<ReverseSwapAttributes>;

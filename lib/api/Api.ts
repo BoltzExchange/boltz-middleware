@@ -13,6 +13,7 @@ type ApiConfig = {
 
 class Api {
   private app: Application;
+  private controller: Controller;
 
   constructor(private logger: Logger, private config: ApiConfig, service: Service) {
     this.app = express();
@@ -20,11 +21,13 @@ class Api {
     this.app.use(cors());
     this.app.use(express.json());
 
-    const controller = new Controller(logger, service);
-    this.registerRoutes(controller);
+    this.controller = new Controller(logger, service);
+    this.registerRoutes(this.controller);
   }
 
-  public init = () => {
+  public init = async () => {
+    await this.controller.init();
+
     this.app.listen(this.config.port, this.config.host, () => {
       this.logger.info(`API server listening on: ${this.config.host}:${this.config.port}`);
     });

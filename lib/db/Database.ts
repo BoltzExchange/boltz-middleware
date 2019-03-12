@@ -1,11 +1,13 @@
 import fs from 'fs';
 import path from 'path';
 import Sequelize from 'sequelize';
-import * as db from '../consts/Database';
 import Logger from '../Logger';
+import * as db from '../consts/Database';
 
 type Models = {
   Pair: Sequelize.Model<db.PairInstance, db.PairAttributes>;
+  Swap: Sequelize.Model<db.SwapInstance, db.SwapAttributes>;
+  ReverseSwap: Sequelize.Model<db.ReverseSwapInstance, db.ReverseSwapAttributes>;
 };
 
 class Database {
@@ -35,8 +37,11 @@ class Database {
       throw error;
     }
 
+    await this.models.Pair.sync(),
+
     await Promise.all([
-      this.models.Pair.sync(),
+      this.models.Swap.sync(),
+      this.models.ReverseSwap.sync(),
     ]);
   }
 
