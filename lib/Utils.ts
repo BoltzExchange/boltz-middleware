@@ -9,7 +9,7 @@ const idPossibilities = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz012
  *
  * @param length how many characters the id should have
  */
-export const generateId = (length: number) => {
+export const generateId = (length: number): string => {
   let id = '';
 
   for (let i = 0; i < length; i += 1) {
@@ -29,7 +29,7 @@ export const getPairId = (pair: PairFactory): string => {
 /**
  * Get the quote and base asset of a pair id
  */
-export const splitPairId = (pairId: string): { quote: string, base: string } => {
+export const splitPairId = (pairId: string): PairFactory => {
   const split = pairId.split('/');
 
   return {
