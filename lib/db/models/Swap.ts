@@ -4,7 +4,9 @@ import * as db from '../../consts/Database';
 export default (sequelize: Sequelize.Sequelize, dataTypes: Sequelize.DataTypes) => {
   const attributes: db.SequelizeAttributes<db.SwapAttributes> = {
     id: { type: dataTypes.STRING, primaryKey: true, allowNull: false },
+    fee: { type: dataTypes.INTEGER, allowNull: false },
     pair: { type: dataTypes.STRING, allowNull: false },
+    orderSide: { type: dataTypes.INTEGER, allowNull: false },
     status: { type: dataTypes.STRING, allowNull: true },
     invoice: { type: dataTypes.STRING, unique: true, allowNull: false },
     lockupAddress: { type: dataTypes.STRING, allowNull: false },

@@ -1,8 +1,8 @@
 import Logger from '../Logger';
 import CryptoCompare from './CryptoCompare';
+import { CurrencyConfig } from '../consts/Types';
 import { PairInstance } from '../consts/Database';
-import { CurrencyConfig } from '../notifications/NotificationProvider';
-import { getPairId, stringify, mapToObject, minutesToMilliseconds, satoshisToWholeCoins, roundToDecimals } from '../Utils';
+import { getPairId, stringify, mapToObject, minutesToMilliseconds, satoshisToCoins, roundToDecimals } from '../Utils';
 
 type Limits = {
   minimal: number;
@@ -136,8 +136,8 @@ class RateProvider {
   private parseCurrencies = (currencies: CurrencyConfig[]) => {
     currencies.forEach((currency) => {
       this.currencies.set(currency.symbol, {
-        maximal: satoshisToWholeCoins(currency.maxSwapAmount),
-        minimal: satoshisToWholeCoins(currency.minSwapAmount),
+        maximal: satoshisToCoins(currency.maxSwapAmount),
+        minimal: satoshisToCoins(currency.minSwapAmount),
       });
     });
   }

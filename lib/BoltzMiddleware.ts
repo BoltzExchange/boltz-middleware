@@ -38,6 +38,7 @@ class BoltzMiddleware {
 
     this.notifications = new NotificationProvider(
       this.logger,
+      this.service,
       this.boltzClient,
       this.config.notification,
       this.config.currencies,

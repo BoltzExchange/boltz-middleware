@@ -4,9 +4,10 @@ import toml from 'toml';
 import { Arguments } from 'yargs';
 import { ApiConfig } from './api/Api';
 import { PairConfig } from './service/Service';
+import { CurrencyConfig } from './consts/Types';
 import { BoltzConfig } from './boltz/BoltzClient';
 import { getServiceDir, deepMerge, resolveHome } from './Utils';
-import { NotificationConfig, CurrencyConfig } from './notifications/NotificationProvider';
+import { NotificationConfig } from './notifications/NotificationProvider';
 
 class Config {
   public logpath: string;

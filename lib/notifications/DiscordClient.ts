@@ -3,6 +3,7 @@ import { Client, TextChannel, Message } from 'discord.js';
 
 enum Command {
   GetBalance,
+  GetFees,
 }
 
 interface DiscordClient {
@@ -25,6 +26,10 @@ class DiscordClient extends EventEmitter {
   }
 
   public init = async () => {
+    if (this.token === '') {
+      throw 'no API token provided';
+    }
+
     await this.client.login(this.token);
 
     const { channels } = this.client;
@@ -66,10 +71,13 @@ class DiscordClient extends EventEmitter {
     }
   }
 
-  private parseMessage = (message: string) => {
+  private parseMessage = (message: string): Command | undefined => {
     switch (message.toLowerCase()) {
       case 'getbalance':
         return Command.GetBalance;
+
+      case 'getfees':
+        return Command.GetFees;
 
       default:
         return undefined;

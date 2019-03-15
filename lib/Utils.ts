@@ -1,6 +1,7 @@
 import os from 'os';
 import path from 'path';
 import { PairFactory } from './consts/Database';
+import { GetBalanceResponse, Balance, OrderSide } from './proto/boltzrpc_pb';
 
 const idPossibilities = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
 
@@ -160,7 +161,7 @@ export const minutesToMilliseconds = (minutes: number) => {
 /**
  * Convert satoshis to whole coins and remove trailing zeros
  */
-export const satoshisToWholeCoins = (satoshis: number) => {
+export const satoshisToCoins = (satoshis: number) => {
   return roundToDecimals(satoshis / 100000000, 8);
 };
 
@@ -169,4 +170,30 @@ export const satoshisToWholeCoins = (satoshis: number) => {
  */
 export const roundToDecimals = (number: number, decimals: number) => {
   return Number(number.toFixed(decimals));
+};
+
+/**
+ * Converts a "GetBalanceResponse" into a map
+ */
+export const parseBalances = async (balance: GetBalanceResponse.AsObject) => {
+  const balances = new Map<string, Balance.AsObject>();
+
+  balance.balancesMap.forEach(([key, value]) => {
+    balances.set(key, value);
+  });
+
+  return balances;
+};
+
+/**
+ * Gets the symbol for the fee of a swap
+ */
+export const getFeeSymbol = (pairId: string, orderSide: OrderSide, isReverse: boolean): string => {
+  const { base, quote } = splitPairId(pairId);
+
+  if (isReverse) {
+    return orderSide === OrderSide.BUY ? quote : base;
+  } else {
+    return orderSide === OrderSide.BUY ? base : quote;
+  }
 };
