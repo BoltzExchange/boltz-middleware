@@ -1,14 +1,9 @@
 import { EventEmitter } from 'events';
 import { Client, TextChannel, Message } from 'discord.js';
 
-enum Command {
-  GetBalance,
-  GetFees,
-}
-
 interface DiscordClient {
-  on(event: 'command', listener: (command: Command) => void): this;
-  emit(event: 'command', command: Command): boolean;
+  on(event: 'message', listener: (message: string) => void): this;
+  emit(event: 'message', message: string): boolean;
 }
 
 class DiscordClient extends EventEmitter {
@@ -46,7 +41,7 @@ class DiscordClient extends EventEmitter {
       throw `Could not find Discord channel: ${this.channelName}`;
     }
 
-    await this.listenForCommands();
+    await this.listenForMessages();
   }
 
   public sendMessage = async (message: string) => {
@@ -55,35 +50,17 @@ class DiscordClient extends EventEmitter {
     }
   }
 
-  private listenForCommands = async () => {
+  private listenForMessages = async () => {
     if (this.channel) {
       this.client.on('message', (message: Message) => {
         if (message.author.bot) return;
 
         if (message.channel.id === this.channel!.id) {
-          const command = this.parseMessage(message.content);
-
-          if (command !== undefined) {
-            this.emit('command', command);
-          }
+          this.emit('message', message.content);
         }
       });
-    }
-  }
-
-  private parseMessage = (message: string): Command | undefined => {
-    switch (message.toLowerCase()) {
-      case 'getbalance':
-        return Command.GetBalance;
-
-      case 'getfees':
-        return Command.GetFees;
-
-      default:
-        return undefined;
     }
   }
 }
 
 export default DiscordClient;
-export { Command };
