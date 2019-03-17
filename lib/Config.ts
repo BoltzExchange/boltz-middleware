@@ -69,7 +69,9 @@ class Config {
         minSwapAmount: 1000,
 
         minWalletBalance: 1000000,
-        minChannelBalance: 500000,
+
+        minLocalBalance: 500000,
+        minRemoteBalance: 500000,
       },
       {
         symbol: 'LTC',
@@ -78,7 +80,9 @@ class Config {
         minSwapAmount: 10000,
 
         minWalletBalance: 100000000,
-        minChannelBalance: 50000000,
+
+        minLocalBalance: 50000000,
+        minRemoteBalance: 50000000,
       },
     ];
 

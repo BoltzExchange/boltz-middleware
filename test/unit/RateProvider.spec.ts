@@ -6,12 +6,15 @@ import PairRepository from '../../lib/service/PairRepository';
 
 describe('RateProvider', () => {
   const decimals = 100000000;
+
   const currencyConfig = {
     maxSwapAmount: 10 * decimals,
     minSwapAmount: 1 * decimals,
 
     minWalletBalance: 0,
-    minChannelBalance: 0,
+
+    minLocalBalance: 0,
+    minRemoteBalance: 0,
   };
 
   const rateProvider = new RateProvider(Logger.disabledLogger, 0.1, [

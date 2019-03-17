@@ -67,8 +67,16 @@ class CommandHandler {
     balances.forEach((balance, symbol) => {
       // tslint:disable-next-line:prefer-template
       message += `\n\n**${symbol}**\n` +
-        `Wallet: ${satoshisToCoins(balance.walletBalance!.totalBalance)} ${symbol}\n` +
-        `Channels: ${satoshisToCoins(balance.channelBalance)} ${symbol}`;
+        `Wallet: ${satoshisToCoins(balance.walletBalance!.totalBalance)} ${symbol}`;
+
+      if (balance.lightningBalance) {
+        const { localBalance, remoteBalance } = balance.lightningBalance;
+
+        // tslint:disable-next-line:prefer-template
+        message += 'Channels:\n' +
+          `  Local: ${satoshisToCoins(localBalance)} ${symbol}` +
+          `  Remote: ${satoshisToCoins(remoteBalance)} ${symbol}`;
+      }
     });
 
     await this.discord.sendMessage(message);
