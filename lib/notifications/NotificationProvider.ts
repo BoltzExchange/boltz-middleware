@@ -1,8 +1,13 @@
 import Logger from '../Logger';
-import DiscordClient, { Command } from './DiscordClient';
-import { Balance, OutputType } from '../proto/boltzrpc_pb';
+import Service from '../service/Service';
+import DiscordClient from './DiscordClient';
+import CommandHandler from './CommandHandler';
+import { CurrencyConfig } from '../consts/Types';
+import { SwapUpdateEvent } from '../consts/Enums';
+import { OutputType, OrderSide } from '../proto/boltzrpc_pb';
 import BoltzClient, { ConnectionStatus } from '../boltz/BoltzClient';
-import { minutesToMilliseconds, satoshisToWholeCoins } from '../Utils';
+import { SwapInstance, ReverseSwapInstance } from '../consts/Database';
+import { minutesToMilliseconds, satoshisToCoins, splitPairId, parseBalances, getFeeSymbol } from '../Utils';
 
 type NotificationConfig = {
   token: string;
@@ -12,17 +17,9 @@ type NotificationConfig = {
   interval: number;
 };
 
-type CurrencyConfig = {
-  symbol: string;
-
-  maxSwapAmount: number;
-  minSwapAmount: number;
-
-  minWalletBalance: number;
-  minChannelBalance: number;
-};
-
 class NotificationProvider {
+  private readonly backendName = 'backend';
+
   private timer!: NodeJS.Timer;
   private discord: DiscordClient;
 
@@ -34,6 +31,7 @@ class NotificationProvider {
 
   constructor(
     private logger: Logger,
+    private service: Service,
     private boltz: BoltzClient,
     private config: NotificationConfig,
     private currencies: CurrencyConfig[]) {
@@ -45,7 +43,13 @@ class NotificationProvider {
     );
 
     this.listenToBoltz();
-    this.listenForCommands();
+    this.listenToService();
+
+    new CommandHandler(
+      this.service,
+      this.boltz,
+      this.discord,
+    );
   }
 
   public init = async () => {
@@ -104,7 +108,7 @@ class NotificationProvider {
   }
 
   private checkBalances = async () => {
-    const balances = await this.parseBalances();
+    const balances = await parseBalances(await this.boltz.getBalance());
 
     for (const currency of this.currencies) {
       const balance = balances.get(currency.symbol);
@@ -136,40 +140,34 @@ class NotificationProvider {
   }
 
   private listenToBoltz = () => {
-    const service = 'backend';
-
     this.boltz.on('status.updated', async (status: ConnectionStatus) => {
       switch (status) {
         case ConnectionStatus.Connected:
-          if (this.disconnected.has(service)) {
-            this.disconnected.delete(service);
-            await this.sendReconnected('backend');
+          if (this.disconnected.has(this.backendName)) {
+            this.disconnected.delete(this.backendName);
+            await this.sendReconnected(this.backendName);
           }
           break;
 
         case ConnectionStatus.Disconnected:
-          if (!this.disconnected.has(service)) {
-            this.disconnected.add(service);
-            await this.sendLostConnection('backend');
+          if (!this.disconnected.has(this.backendName)) {
+            this.disconnected.add(this.backendName);
+            await this.sendLostConnection(this.backendName);
           }
           break;
       }
     });
   }
 
-  private listenForCommands = () => {
-    this.discord.on('command', async (command: Command) => {
-      switch (command) {
-        case Command.GetBalance:
-          await this.sendBalance();
-          break;
-      }
+  private listenToService = () => {
+    this.service.on('swap.successful', async (swap) => {
+      await this.sendSwapSuccessful(swap);
     });
   }
 
   private sendAlert = async (currency: string, isWallet: boolean, expectedBalance: number, actualBalance: number) => {
     const { expected, actual } = this.formatBalances(expectedBalance, actualBalance);
-    const missing = satoshisToWholeCoins(expectedBalance - actualBalance);
+    const missing = satoshisToCoins(expectedBalance - actualBalance);
 
     const { address } = await this.boltz.newAddress(currency, OutputType.COMPATIBILITY);
 
@@ -200,20 +198,30 @@ class NotificationProvider {
     );
   }
 
-  private sendBalance = async () => {
-    const balances = await this.boltz.getBalance();
+  private sendSwapSuccessful = async (swap: SwapInstance | ReverseSwapInstance) => {
+    const isReverse = swap.status === SwapUpdateEvent.InvoiceSettled;
+    const feeSymbol = getFeeSymbol(swap.pair, swap.orderSide, isReverse);
 
-    let message = 'Balances:';
+    const getSwapDirection = (): string => {
+      let { base, quote } = splitPairId(swap.pair);
 
-    balances.balancesMap.forEach((value) => {
-      const symbol = value[0];
-      const balance = value[1];
+      // Switch the symbols if the swap was a sell order
+      if (swap.orderSide === OrderSide.SELL) {
+        [base, quote] = [quote, base];
+      }
 
-      // tslint:disable-next-line:prefer-template
-      message += `\n\n**${symbol}**\n` +
-        `Wallet: ${satoshisToWholeCoins(balance.walletBalance!.totalBalance)} ${symbol}\n` +
-        `Channels: ${satoshisToWholeCoins(balance.channelBalance)} ${symbol}`;
-    });
+      let direction: string;
+
+      if (isReverse) {
+        direction = `Lightning ${quote} to onchain ${base}`;
+      } else {
+        direction = `onchain ${quote} to Lightning ${base}`;
+      }
+
+      return direction;
+    };
+
+    const message = `Swapped ${getSwapDirection()} and earned ${satoshisToCoins(swap.fee)} ${feeSymbol} in fees`;
 
     await this.discord.sendMessage(message);
   }
@@ -228,26 +236,15 @@ class NotificationProvider {
 
   private formatBalances = (expectedBalance: number, actualBalance: number) => {
     return {
-      expected: satoshisToWholeCoins(expectedBalance),
-      actual: satoshisToWholeCoins(actualBalance),
+      expected: satoshisToCoins(expectedBalance),
+      actual: satoshisToCoins(actualBalance),
     };
   }
 
   private getWalletName = (isWallet: boolean) => {
     return isWallet ? 'wallet' : 'channel';
   }
-
-  private parseBalances = async () => {
-    const balance = await this.boltz.getBalance();
-    const balances = new Map<string, Balance.AsObject>();
-
-    balance.balancesMap.forEach((balance) => {
-      balances.set(balance[0], balance[1]);
-    });
-
-    return balances;
-  }
 }
 
 export default NotificationProvider;
-export { NotificationConfig, CurrencyConfig };
+export { NotificationConfig };

@@ -3,7 +3,6 @@ import { EventEmitter } from 'events';
 import Errors from './Errors';
 import Logger from '../Logger';
 import Database from '../db/Database';
-import { SwapUpdate } from '../consts/Types';
 import SwapRepository from './SwapRepository';
 import PairRepository from './PairRepository';
 import BoltzClient from '../boltz/BoltzClient';
@@ -11,9 +10,9 @@ import RateProvider from '../rates/RateProvider';
 import { SwapUpdateEvent } from '../consts/Enums';
 import { encodeBip21 } from './PaymentRequestUtils';
 import ReverseSwapRepository from './ReverseSwapRepository';
-import { CurrencyConfig } from '../notifications/NotificationProvider';
+import { SwapUpdate, CurrencyConfig } from '../consts/Types';
 import { OrderSide, OutputType, CurrencyInfo } from '../proto/boltzrpc_pb';
-import { splitPairId, stringify, generateId, mapToObject, satoshisToWholeCoins } from '../Utils';
+import { splitPairId, stringify, generateId, mapToObject, satoshisToCoins } from '../Utils';
 import { PairInstance, PairFactory, SwapInstance, ReverseSwapInstance } from '../consts/Database';
 
 type PairConfig = {
@@ -33,6 +32,9 @@ type Pair = {
 interface Service {
   on(event: 'swap.update', listener: (id: string, message: SwapUpdate) => void): this;
   emit(event: 'swap.update', id: string, message: SwapUpdate): boolean;
+
+  on(event: 'swap.successful', listener: (swap: SwapInstance | ReverseSwapInstance) => void): this;
+  emit(event: 'swap.successful', swap: SwapInstance | ReverseSwapInstance): boolean;
 }
 
 // TODO: do not override invoice settled status with transaction confirmed and invoice paid with with transaction confirmed
@@ -231,8 +233,10 @@ class Service extends EventEmitter {
     try {
       await this.swapRepository.addSwap({
         id,
+        fee,
         invoice,
         pair: pairId,
+        orderSide: side,
         lockupAddress: address,
       });
     } catch (error) {
@@ -280,8 +284,10 @@ class Service extends EventEmitter {
 
     await this.reverseSwapRepository.addReverseSwap({
       id,
+      fee,
       invoice,
       pair: pairId,
+      orderSide: side,
       transactionId: lockupTransactionHash,
     });
 
@@ -328,7 +334,7 @@ class Service extends EventEmitter {
     const limits = this.rateProvider.limits.get(pairId);
 
     if (limits) {
-      const amount = satoshisToWholeCoins(satoshis);
+      const amount = satoshisToCoins(satoshis);
 
       if (amount > limits.maximal) throw Errors.EXCEED_MAXIMAL_AMOUNT(amount, limits.maximal);
       if (amount < limits.minimal) throw Errors.BENEATH_MINIMAL_AMOUNT(amount, limits.minimal);
@@ -384,6 +390,11 @@ class Service extends EventEmitter {
       });
 
       await this.updateSwapStatus<SwapInstance>(swap, SwapUpdateEvent.InvoicePaid, this.swapRepository.setSwapStatus);
+
+      if (swap) {
+        swap.status = SwapUpdateEvent.InvoicePaid;
+        this.emit('swap.successful', swap);
+      }
     });
 
     this.boltz.on('invoice.failedToPay', async (invoice: string) => {
@@ -408,7 +419,11 @@ class Service extends EventEmitter {
           },
         );
 
+        reverseSwap.preimage = preimage;
+        reverseSwap.status = SwapUpdateEvent.InvoiceSettled;
+
         this.emit('swap.update', reverseSwap.id, { preimage, event: SwapUpdateEvent.InvoiceSettled });
+        this.emit('swap.successful', reverseSwap);
       }
     });
   }

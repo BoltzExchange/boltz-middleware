@@ -5,8 +5,10 @@ import * as db from '../consts/Database';
 class ReverseSwapRepository {
   constructor(private models: Models) {}
 
-  public getReverseSwaps = async () => {
-    return this.models.ReverseSwap.findAll({});
+  public getReverseSwaps = async (options?: WhereOptions<db.ReverseSwapFactory>) => {
+    return this.models.ReverseSwap.findAll({
+      where: options,
+    });
   }
 
   public getReverseSwap = async (options: WhereOptions<db.ReverseSwapFactory>) => {
