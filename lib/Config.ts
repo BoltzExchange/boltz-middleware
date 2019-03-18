@@ -4,9 +4,10 @@ import toml from 'toml';
 import { Arguments } from 'yargs';
 import { ApiConfig } from './api/Api';
 import { PairConfig } from './service/Service';
+import { CurrencyConfig } from './consts/Types';
 import { BoltzConfig } from './boltz/BoltzClient';
 import { getServiceDir, deepMerge, resolveHome } from './Utils';
-import { NotificationConfig, CurrencyConfig } from './notifications/NotificationProvider';
+import { NotificationConfig } from './notifications/NotificationProvider';
 
 class Config {
   public logpath: string;
@@ -68,7 +69,9 @@ class Config {
         minSwapAmount: 1000,
 
         minWalletBalance: 1000000,
-        minChannelBalance: 500000,
+
+        minLocalBalance: 500000,
+        minRemoteBalance: 500000,
       },
       {
         symbol: 'LTC',
@@ -77,7 +80,9 @@ class Config {
         minSwapAmount: 10000,
 
         minWalletBalance: 100000000,
-        minChannelBalance: 50000000,
+
+        minLocalBalance: 50000000,
+        minRemoteBalance: 50000000,
       },
     ];
 

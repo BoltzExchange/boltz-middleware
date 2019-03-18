@@ -26,9 +26,12 @@ export type PairAttributes = PairFactory & {
 
 export type PairInstance = PairAttributes & Sequelize.Instance<PairAttributes>;
 
-type Swap = {
+export type Swap = {
   id: string;
+  fee: number;
+
   pair: string;
+  orderSide: number;
   status?: string;
   invoice: string;
 };

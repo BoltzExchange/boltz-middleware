@@ -75,6 +75,6 @@ describe('Utils', () => {
   it('should convert satoshis to whole coins', () => {
     const randomSat = randomRange(7000);
     const coins = Number((randomSat / 100000000).toFixed(8));
-    expect(utils.satoshisToWholeCoins(randomSat)).to.equal(coins);
+    expect(utils.satoshisToCoins(randomSat)).to.equal(coins);
   });
 });

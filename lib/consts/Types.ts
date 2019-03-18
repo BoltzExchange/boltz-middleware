@@ -10,3 +10,15 @@ export type SwapUpdate = {
 
   preimage?: string;
 };
+
+export type CurrencyConfig = {
+  symbol: string;
+
+  maxSwapAmount: number;
+  minSwapAmount: number;
+
+  minWalletBalance: number;
+
+  minLocalBalance: number;
+  minRemoteBalance: number;
+};
