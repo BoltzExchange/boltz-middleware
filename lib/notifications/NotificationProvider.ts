@@ -25,7 +25,9 @@ class NotificationProvider {
 
   // These Sets contain the symbols for which an alert notification was sent
   private walletAlerts = new Set<string>();
-  private channelAlerts = new Set<string>();
+
+  private localBalanceAlerts = new Set<string>();
+  private remoteBalanceAlerts = new Set<string>();
 
   private disconnected = new Set<string>();
 
@@ -114,27 +116,32 @@ class NotificationProvider {
       const balance = balances.get(currency.symbol);
 
       if (balance) {
-        const { channelBalance, walletBalance } = balance;
+        const { symbol, minWalletBalance, minLocalBalance, minRemoteBalance } = currency;
 
-        await this.checkBalance(currency.symbol, false, currency.minChannelBalance, channelBalance);
-        await this.checkBalance(currency.symbol, true, currency.minWalletBalance, walletBalance!.totalBalance);
+        await this.checkBalance(symbol, this.walletAlerts, balance.walletBalance!.totalBalance, minWalletBalance, true);
+
+        if (balance.lightningBalance) {
+          const { localBalance, remoteBalance } = balance.lightningBalance;
+
+          await this.checkBalance(symbol, this.localBalanceAlerts, localBalance, minLocalBalance, false, true);
+          await this.checkBalance(symbol, this.remoteBalanceAlerts, remoteBalance, minRemoteBalance, false, false);
+        }
       }
     }
   }
 
-  private checkBalance = async (currency: string, isWallet: boolean, expectedBalance: number, actualBalance: number) => {
-    const set = isWallet ? this.walletAlerts : this.channelAlerts;
+  private checkBalance = async (currency: string, set: Set<string>, balance: number, threshold: number, isWallet: boolean, isLocal?: boolean) => {
     const sentAlert = set.has(currency);
 
     if (sentAlert) {
-      if (actualBalance > expectedBalance) {
+      if (balance > threshold) {
         set.delete(currency);
-        await this.sendRelief(currency, isWallet, expectedBalance, actualBalance);
+        await this.sendRelief(currency, balance, threshold, isWallet, isLocal);
       }
     } else {
-      if (actualBalance < expectedBalance) {
+      if (balance <= threshold) {
         set.add(currency);
-        await this.sendAlert(currency, isWallet, expectedBalance, actualBalance);
+        await this.sendAlert(currency, balance, threshold, isWallet, isLocal);
       }
     }
   }
@@ -165,36 +172,35 @@ class NotificationProvider {
     });
   }
 
-  private sendAlert = async (currency: string, isWallet: boolean, expectedBalance: number, actualBalance: number) => {
-    const { expected, actual } = this.formatBalances(expectedBalance, actualBalance);
-    const missing = satoshisToCoins(expectedBalance - actualBalance);
+  private sendAlert = async (currency: string, balance: number, threshold: number, isWallet: boolean, isLocal?: boolean) => {
+    const { actual, expected } = this.formatBalances(balance, threshold);
+    const missing = satoshisToCoins(threshold - balance);
 
-    const { address } = await this.boltz.newAddress(currency, OutputType.COMPATIBILITY);
+    const balanceName = this.getBalanceName(isWallet, isLocal);
 
-    const walletName = this.getWalletName(isWallet);
-
-    this.logger.warn(`${currency} ${walletName} balance is less than ${expectedBalance}: ${actualBalance}`);
+    this.logger.warn(`${currency} ${balanceName} balance is less than ${threshold}: ${balance}`);
 
     // tslint:disable-next-line:prefer-template
     let message = ':rotating_light: **Alert** :rotating_light:\n\n' +
-      `The ${currency} ${walletName} balance of ${actual} ${currency} is less than expected ${expected} ${currency}\n\n` +
+      `The ${currency} ${balanceName} balance of ${actual} ${currency} is less than expected ${expected} ${currency}\n\n` +
       `Funds missing: **${missing} ${currency}**`;
 
     if (isWallet) {
+      const { address } = await this.boltz.newAddress(currency, OutputType.COMPATIBILITY);
       message += `\nDeposit address: **${address}**`;
     }
 
     await this.discord.sendMessage(message);
   }
 
-  private sendRelief = async (currency: string, isWallet: boolean, expectedBalance: number, actualBalance: number) => {
-    const { expected, actual } = this.formatBalances(expectedBalance, actualBalance);
-    const walletName = this.getWalletName(isWallet);
+  private sendRelief = async (currency: string, balance: number, threshold: number, isWallet: boolean, isLocal?: boolean) => {
+    const { actual, expected } = this.formatBalances(balance, threshold);
+    const balanceName = this.getBalanceName(isWallet, isLocal);
 
-    this.logger.info(`${currency} ${walletName} balance is more than expected ${expectedBalance} again: ${actualBalance}`);
+    this.logger.info(`${currency} ${balanceName} balance is more than expected ${threshold} again: ${balance}`);
 
     await this.discord.sendMessage(
-      `The ${currency} ${walletName} balance of ${actual} ${currency} is more than expected ${expected} ${currency} again`,
+      `The ${currency} ${balanceName} balance of ${actual} ${currency} is more than expected ${expected} ${currency} again`,
     );
   }
 
@@ -222,7 +228,6 @@ class NotificationProvider {
     };
 
     const message = `Swapped ${getSwapDirection()} and earned ${satoshisToCoins(swap.fee)} ${feeSymbol} in fees`;
-
     await this.discord.sendMessage(message);
   }
 
@@ -234,15 +239,19 @@ class NotificationProvider {
     await this.discord.sendMessage(`Reconnected to ${service}`);
   }
 
-  private formatBalances = (expectedBalance: number, actualBalance: number) => {
+  private formatBalances = (balance: number, threshold: number) => {
     return {
-      expected: satoshisToCoins(expectedBalance),
-      actual: satoshisToCoins(actualBalance),
+      actual: satoshisToCoins(balance),
+      expected: satoshisToCoins(threshold),
     };
   }
 
-  private getWalletName = (isWallet: boolean) => {
-    return isWallet ? 'wallet' : 'channel';
+  private getBalanceName = (isWallet: boolean, isLocal?: boolean) => {
+    if (isWallet) {
+      return 'wallet';
+    } else {
+      return isLocal ? 'local' : 'remote';
+    }
   }
 }
 

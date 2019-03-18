@@ -18,5 +18,7 @@ export type CurrencyConfig = {
   minSwapAmount: number;
 
   minWalletBalance: number;
-  minChannelBalance: number;
+
+  minLocalBalance: number;
+  minRemoteBalance: number;
 };
