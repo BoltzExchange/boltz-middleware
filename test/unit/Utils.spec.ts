@@ -1,5 +1,5 @@
-import { expect } from 'chai';
 import os from 'os';
+import { expect } from 'chai';
 import * as utils from '../../lib/Utils';
 import { PairFactory } from '../../lib/consts/Database';
 
@@ -8,23 +8,24 @@ describe('Utils', () => {
     return Math.floor(Math.random() * Math.floor(max));
   };
 
-  let pairId;
+  let pairId: string;
+
   const pair: PairFactory = {
     base: 'BTC',
     quote: 'LTC',
   };
 
-  it('generate id', () => {
+  it('should generate ids', () => {
     const random = randomRange(10);
     expect(utils.generateId(random)).lengthOf(random);
   });
 
-  it('get pair id', () => {
+  it('should get pair ids', () => {
     pairId = utils.getPairId(pair);
     expect(pairId).to.be.equal('BTC/LTC');
   });
 
-  it('split pair id', () => {
+  it('should split pair ids', () => {
     const split = utils.splitPairId(pairId);
     expect(pair.base === split.base && pair.quote === split.quote).to.be.true;
   });
@@ -35,18 +36,16 @@ describe('Utils', () => {
     expect(currenDate).to.be.equal(date);
   });
 
-  it('should concat error code', () => {
+  it('should concat error codes', () => {
     const prefix = 0;
     const code = 1;
 
     expect(utils.concatErrorCode(prefix, code)).to.be.equal(`${prefix}.${code}`);
   });
 
-  it('should check whether is a non-array object', () => {
-    const array = [];
-    const obj = {};
-    expect(utils.isObject(array)).to.be.false;
-    expect(utils.isObject(obj)).to.be.true;
+  it('should check types of variables', () => {
+    expect(utils.isObject([])).to.be.false;
+    expect(utils.isObject({})).to.be.true;
   });
 
   it('should capitalize the first letter', () => {
@@ -69,10 +68,11 @@ describe('Utils', () => {
   it('should convert minutes into milliseconds', () => {
     const random = randomRange(10);
     const milliseconds = random * 60 * 1000;
+
     expect(utils.minutesToMilliseconds(random)).to.equal(milliseconds);
   });
 
-  it('convert satoshis to whole coins', () => {
+  it('should convert satoshis to whole coins', () => {
     const randomSat = randomRange(7000);
     const coins = Number((randomSat / 100000000).toFixed(8));
     expect(utils.satoshisToCoins(randomSat)).to.equal(coins);
