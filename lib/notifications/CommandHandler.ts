@@ -73,8 +73,8 @@ class CommandHandler {
         const { localBalance, remoteBalance } = balance.lightningBalance;
 
         // tslint:disable-next-line:prefer-template
-        message += 'Channels:\n' +
-          `  Local: ${satoshisToCoins(localBalance)} ${symbol}` +
+        message += '\n\nChannels:\n' +
+          `  Local: ${satoshisToCoins(localBalance)} ${symbol}\n` +
           `  Remote: ${satoshisToCoins(remoteBalance)} ${symbol}`;
       }
     });
