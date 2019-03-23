@@ -1,6 +1,5 @@
 import winston from 'winston';
 import colors from 'colors/safe';
-import { getTsString } from './Utils';
 
 class Logger {
 
@@ -26,7 +25,7 @@ class Logger {
   }
 
   private getLogFormat = (colorize: boolean) => {
-    return winston.format.printf(info => `${getTsString()} ${this.getLevel(info.level, colorize)}: ${info.message}`);
+    return winston.format.printf(info => `${this.getTsString()} ${this.getLevel(info.level, colorize)}: ${info.message}`);
   }
 
   private getLevel = (level: string, colorize: boolean) => {
@@ -72,6 +71,8 @@ class Logger {
       winston.log(level, message);
     }
   }
+
+  private getTsString = () => (new Date()).toLocaleString('en-US', { hour12: false });
 }
 
 export default Logger;

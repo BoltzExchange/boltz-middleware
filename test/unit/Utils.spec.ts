@@ -30,12 +30,6 @@ describe('Utils', () => {
     expect(pair.base === split.base && pair.quote === split.quote).to.be.true;
   });
 
-  it('should get current date in LocaleString format', () => {
-    const currenDate = utils.getTsString();
-    const date = (new Date()).toLocaleString('en-US', { hour12: false });
-    expect(currenDate).to.be.equal(date);
-  });
-
   it('should concat error codes', () => {
     const prefix = 0;
     const code = 1;
