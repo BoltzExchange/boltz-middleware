@@ -45,6 +45,7 @@ class NotificationProvider {
     );
 
     this.listenToBoltz();
+    this.listenToDiscord();
     this.listenToService();
 
     new CommandHandler(
@@ -146,8 +147,14 @@ class NotificationProvider {
     }
   }
 
+  private listenToDiscord = () => {
+    this.discord.on('error', (error) => {
+      this.logger.warn(`Discord client threw: ${error.message}`);
+    });
+  }
+
   private listenToBoltz = () => {
-    this.boltz.on('status.updated', async (status: ConnectionStatus) => {
+    this.boltz.on('status.updated', async (status) => {
       switch (status) {
         case ConnectionStatus.Connected:
           if (this.disconnected.has(this.backendName)) {
