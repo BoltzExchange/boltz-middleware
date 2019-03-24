@@ -1,5 +1,4 @@
 #!/usr/bin/env node
-
 const BoltzMiddleware = require('../dist/BoltzMiddleware').default;
 
 const { argv } = require('yargs').options({
@@ -77,9 +76,9 @@ const { argv } = require('yargs').options({
 
 // Delete non-config keys from argv
 delete argv._;
-delete argv.version;
-delete argv.help;
 delete argv.$0;
+delete argv.help;
+delete argv.version;
 
 const boltzMiddleware = new BoltzMiddleware(argv);
 boltzMiddleware.start();

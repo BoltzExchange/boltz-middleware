@@ -1,7 +1,10 @@
 import os from 'os';
 import path from 'path';
-import { PairFactory } from './consts/Database';
+import { SwapUpdateEvent } from './consts/Enums';
+import SwapRepository from './service/SwapRepository';
+import ReverseSwapRepository from './service/ReverseSwapRepository';
 import { GetBalanceResponse, Balance, OrderSide } from './proto/boltzrpc_pb';
+import { PairFactory, SwapInstance, ReverseSwapInstance } from './consts/Database';
 
 const idPossibilities = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
 
@@ -38,11 +41,6 @@ export const splitPairId = (pairId: string): PairFactory => {
     quote: split[1],
   };
 };
-
-/**
- * Get the current date in the LocaleString format.
- */
-export const getTsString = (): string => (new Date()).toLocaleString('en-US', { hour12: false });
 
 /**
  * Concat an error code and its prefix
@@ -196,4 +194,25 @@ export const getFeeSymbol = (pairId: string, orderSide: OrderSide, isReverse: bo
   } else {
     return orderSide === OrderSide.BUY ? base : quote;
   }
+};
+
+/**
+ * Gets all successful (reverse) swaps
+ */
+export const getSuccessfulTrades = async (swapRepository: SwapRepository, reverseSwapRepository: ReverseSwapRepository):
+  Promise<{ swaps: SwapInstance[], reverseSwaps: ReverseSwapInstance[] }> => {
+
+  const [swaps, reverseSwaps] = await Promise.all([
+    swapRepository.getSwaps({
+      status: SwapUpdateEvent.InvoicePaid,
+    }),
+    reverseSwapRepository.getReverseSwaps({
+      status: SwapUpdateEvent.InvoiceSettled,
+    }),
+  ]);
+
+  return {
+    swaps,
+    reverseSwaps,
+  };
 };

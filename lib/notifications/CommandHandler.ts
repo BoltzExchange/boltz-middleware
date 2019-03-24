@@ -1,9 +1,8 @@
 import Service from '../service/Service';
 import DiscordClient from './DiscordClient';
 import BoltzClient from '../boltz/BoltzClient';
-import { SwapUpdateEvent } from '../consts/Enums';
 import { SwapInstance, ReverseSwapInstance, Swap } from '../consts/Database';
-import { satoshisToCoins, parseBalances, getFeeSymbol, stringify } from '../Utils';
+import { satoshisToCoins, parseBalances, getFeeSymbol, stringify, getSuccessfulTrades } from '../Utils';
 
 enum Command {
   GetBalance = 'getbalance',
@@ -26,18 +25,10 @@ class CommandHandler {
     private discord: DiscordClient) {
 
     this.commands = new Map<string, CommandInfo>([
-      [
-        Command.GetBalance, { description: 'gets the balance of the wallet and channels', executor: this.getBalance },
-      ],
-      [
-        Command.GetFees, { description: 'gets the accumulated fees', executor: this.getFees },
-      ],
-      [
-        Command.SwapInfo, { description: 'gets all available information about a (reverse) swap', executor: this.swapInfo },
-      ],
-      [
-        Command.Help, { description: 'gets a list of all available commands', executor: this.help },
-      ],
+      [Command.GetBalance, { description: 'gets the balance of the wallet and channels', executor: this.getBalance }],
+      [Command.GetFees, { description: 'gets the accumulated fees', executor: this.getFees }],
+      [Command.SwapInfo, { description: 'gets all available information about a (reverse) swap', executor: this.swapInfo }],
+      [Command.Help, { description: 'gets a list of all available commands', executor: this.help }],
     ]);
 
     this.discord.on('message', async (message: string) => {
@@ -85,16 +76,7 @@ class CommandHandler {
   private getFees = async () => {
     let message = 'Fees:\n';
 
-    // Get all successful (reverse) swaps
-    const [swaps, reverseSwaps] = await Promise.all([
-      this.service.swapRepository.getSwaps({
-        status: SwapUpdateEvent.InvoicePaid,
-      }),
-      this.service.reverseSwapRepository.getReverseSwaps({
-        status: SwapUpdateEvent.InvoiceSettled,
-      }),
-    ]);
-
+    const { swaps, reverseSwaps } = await getSuccessfulTrades(this.service.swapRepository, this.service.reverseSwapRepository);
     const fees = this.getFeeFromSwaps(swaps, reverseSwaps);
 
     fees.forEach((fee, symbol) => {
@@ -143,14 +125,13 @@ class CommandHandler {
     await this.discord.sendMessage(message);
   }
 
-  private getFeeFromSwaps = (swaps: SwapInstance[], reverseSwaps: ReverseSwapInstance[]): Map<string, number> => {
+  private getFeeFromSwaps = (swaps: SwapInstance[], reverseSwaps: ReverseSwapInstance[]) => {
     // A map between the symbols of the currencies and the fees collected on that chain
     const fees = new Map<string, number>();
 
     const getFeeFromSwapMap = (array: Swap[], isReverse: boolean) => {
       array.forEach((swap) => {
         const feeSymbol = getFeeSymbol(swap.pair, swap.orderSide, isReverse);
-
         const fee = fees.get(feeSymbol);
 
         if (fee) {

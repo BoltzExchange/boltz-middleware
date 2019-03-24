@@ -42,7 +42,10 @@ export type SwapFactory = Swap & {
 
 export type SwapAttributes = SwapFactory;
 
-export type SwapInstance = SwapFactory & Sequelize.Instance<SwapAttributes>;
+export type SwapInstance = SwapFactory & Sequelize.Instance<SwapAttributes> & {
+  createdAt: string;
+  updatedAt: string;
+};
 
 export type ReverseSwapFactory = Swap & {
   preimage?: string;
@@ -51,4 +54,7 @@ export type ReverseSwapFactory = Swap & {
 
 export type ReverseSwapAttributes = ReverseSwapFactory;
 
-export type ReverseSwapInstance = ReverseSwapFactory & Sequelize.Instance<ReverseSwapAttributes>;
+export type ReverseSwapInstance = ReverseSwapFactory & Sequelize.Instance<ReverseSwapAttributes> & {
+  createdAt: string;
+  updatedAt: string;
+};
