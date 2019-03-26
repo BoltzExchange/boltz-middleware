@@ -4,6 +4,9 @@ import { Client, TextChannel, Message } from 'discord.js';
 interface DiscordClient {
   on(event: 'message', listener: (message: string) => void): this;
   emit(event: 'message', message: string): boolean;
+
+  on(event: 'error', listener: (error: Error) => void): this;
+  emit(event: 'error', error: Error): boolean;
 }
 
 class DiscordClient extends EventEmitter {
@@ -60,6 +63,10 @@ class DiscordClient extends EventEmitter {
         }
       });
     }
+
+    this.client.on('error', (error) => {
+      this.emit('error', error);
+    });
   }
 }
 
