@@ -1,6 +1,7 @@
 import Service from '../service/Service';
 import DiscordClient from './DiscordClient';
 import BoltzClient from '../boltz/BoltzClient';
+import { OutputType } from '../proto/boltzrpc_pb';
 import { SwapInstance, ReverseSwapInstance, Swap } from '../consts/Database';
 import { satoshisToCoins, parseBalances, getFeeSymbol, stringify, getSuccessfulTrades } from '../Utils';
 
@@ -8,6 +9,7 @@ enum Command {
   GetBalance = 'getbalance',
   GetFees = 'getfees',
   SwapInfo = 'swapinfo',
+  NewAddress = 'newaddress',
   Help = 'help',
 }
 
@@ -28,6 +30,7 @@ class CommandHandler {
       [Command.GetBalance, { description: 'gets the balance of the wallet and channels', executor: this.getBalance }],
       [Command.GetFees, { description: 'gets the accumulated fees', executor: this.getFees }],
       [Command.SwapInfo, { description: 'gets all available information about a (reverse) swap', executor: this.swapInfo }],
+      [Command.NewAddress, { description: 'generates a new address for a currency', executor: this.newAddress }],
       [Command.Help, { description: 'gets a list of all available commands', executor: this.help }],
     ]);
 
@@ -49,6 +52,10 @@ class CommandHandler {
       await this.discord.sendMessage(`Could not find command: *\"${command}\"*. Type **help** for a list of all commands`);
     });
   }
+
+  /**
+   * Command executors
+   */
 
   private getBalance = async () => {
     const balances = await parseBalances(await this.boltz.getBalance());
@@ -87,12 +94,13 @@ class CommandHandler {
   }
 
   private swapInfo = async (args: string[]) => {
-    if (args.length === 0) {
-      await this.sendCouldNotFindSwap('');
+    let id = '';
+
+    if (args.length !== 0) {
+      id = args[0];
       return;
     }
 
-    const id = args[0];
     const swap = await this.service.swapRepository.getSwap({
       id,
     });
@@ -115,6 +123,26 @@ class CommandHandler {
     await this.sendCouldNotFindSwap(id);
   }
 
+  private newAddress = async (args: string[]) => {
+    let currency = '';
+    let outputType = OutputType.COMPATIBILITY;
+
+    try {
+      if (args.length !== 0) {
+        currency = args[0].toUpperCase();
+
+        if (args.length > 1) {
+          outputType = this.getOutputType(args[1].toLowerCase());
+        }
+      }
+
+      const response = await this.boltz.newAddress(currency, outputType);
+      await this.discord.sendMessage(response.address);
+    } catch (error) {
+      await this.discord.sendMessage(`Could not generate address: ${error}`);
+    }
+  }
+
   private help = async () => {
     let message = 'Commands:\n';
 
@@ -123,6 +151,20 @@ class CommandHandler {
     });
 
     await this.discord.sendMessage(message);
+  }
+
+  /**
+   * Helper functions
+   */
+
+  private getOutputType = (type: string) => {
+    switch (type.toLowerCase()) {
+      case 'bech32': return OutputType.BECH32;
+      case 'compatibility': return OutputType.COMPATIBILITY;
+      case 'legacy': return OutputType.LEGACY;
+    }
+
+    throw `could not find output type: ${type}`;
   }
 
   private getFeeFromSwaps = (swaps: SwapInstance[], reverseSwaps: ReverseSwapInstance[]) => {
