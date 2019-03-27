@@ -4,20 +4,25 @@ import Logger from '../Logger';
 import Database from '../db/Database';
 import SwapRepository from '../service/SwapRepository';
 import ReverseSwapRepository from '../service/ReverseSwapRepository';
-import { SwapInstance, ReverseSwapInstance } from 'lib/consts/Database';
-import { getSuccessfulTrades, getFeeSymbol, resolveHome } from '../Utils';
+import { SwapInstance, ReverseSwapInstance } from '../consts/Database';
+import { getSuccessfulTrades, getFeeSymbol, resolveHome, satoshisToCoins } from '../Utils';
 
 type Entry = {
   date: Date;
   pair: string;
+  type: string;
   orderSide: string,
 
-  fee: number;
+  fee: string;
   feeCurrency: string;
 };
 
 export const generateReport = async (argv: Arguments<any>) => {
-  const db = new Database(Logger.disabledLogger, resolveHome(argv.dbpath));
+  // Get the path to the database from the command line arguments or
+  // use the default one if none was specified
+  const dbPath = argv.dbpath || '~/.boltz-middleware/boltz.db';
+
+  const db = new Database(Logger.disabledLogger, resolveHome(dbPath));
   await db.init();
 
   const swapRepository = new SwapRepository(db.models);
@@ -47,9 +52,10 @@ const swapsToEntries = (swaps: SwapInstance[], reverseSwaps: ReverseSwapInstance
       entries.push({
         date: new Date(swap.createdAt),
         pair: swap.pair,
+        type: getSwapType(swap.orderSide, isReverse),
         orderSide: swap.orderSide === 0 ? 'buy' : 'sell',
 
-        fee: swap.fee,
+        fee: satoshisToCoins(swap.fee).toFixed(8),
         feeCurrency: getFeeSymbol(swap.pair, swap.orderSide, isReverse),
       });
     });
@@ -59,6 +65,14 @@ const swapsToEntries = (swaps: SwapInstance[], reverseSwaps: ReverseSwapInstance
   pushToEntries(reverseSwaps, true);
 
   return entries;
+};
+
+const getSwapType = (orderSide: number, isReverse: boolean) => {
+  if ((orderSide === 0 && !isReverse) || (orderSide !== 0 && isReverse)) {
+    return 'Lightning/Chain';
+  } else {
+    return 'Chain/Lightning';
+  }
 };
 
 const arrayToCsv = (entries: Entry[]) => {
@@ -72,7 +86,7 @@ const arrayToCsv = (entries: Entry[]) => {
   entries.forEach((entry) => {
     const date = entry.date.toLocaleString('en-US', { hour12: false }).replace(',', '');
 
-    lines.push(`${date},${entry.pair},${entry.orderSide},${entry.fee},${entry.feeCurrency}`);
+    lines.push(`${date},${entry.pair},${entry.type},${entry.orderSide},${entry.fee},${entry.feeCurrency}`);
   });
 
   return lines.join('\n');
