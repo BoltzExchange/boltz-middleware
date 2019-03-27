@@ -33,7 +33,7 @@ class RateProvider {
   }
 
   /**
-   * Gets a map of of rates for the provided pairs
+   * Gets a map of of rates from CryptoCompare for the provided pairs
    */
   public init = async (pairs: PairInstance[]) => {
     pairs.forEach((pair) => {

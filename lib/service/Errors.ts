@@ -23,8 +23,8 @@ export default {
     message: `${amount} is less than minimal ${minimalAmount}`,
     code: concatErrorCode(ErrorCodePrefix.Service, 4),
   }),
-  SWAP_WITH_INVOICE_EXISTS_ALREADY: (invoice: string): Error => ({
-    message: `a swap with the invoice ${invoice} exists already`,
+  SWAP_WITH_INVOICE_EXISTS_ALREADY: (): Error => ({
+    message: 'a swap with this invoice exists already',
     code: concatErrorCode(ErrorCodePrefix.Service, 5),
   }),
 };

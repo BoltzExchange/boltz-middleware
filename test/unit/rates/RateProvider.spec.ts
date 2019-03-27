@@ -1,8 +1,8 @@
 import { expect } from 'chai';
-import Logger from '../../lib/Logger';
-import Database from '../../lib/db/Database';
-import RateProvider from '../../lib/rates/RateProvider';
-import PairRepository from '../../lib/service/PairRepository';
+import Logger from '../../../lib/Logger';
+import Database from '../../../lib/db/Database';
+import RateProvider from '../../../lib/rates/RateProvider';
+import PairRepository from '../../../lib/service/PairRepository';
 
 describe('RateProvider', () => {
   const decimals = 100000000;

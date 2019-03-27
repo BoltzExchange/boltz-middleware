@@ -6,22 +6,15 @@ import Database from '../db/Database';
 import SwapRepository from './SwapRepository';
 import PairRepository from './PairRepository';
 import BoltzClient from '../boltz/BoltzClient';
+import FeeProvider from '../rates/FeeProvider';
 import RateProvider from '../rates/RateProvider';
 import { SwapUpdateEvent } from '../consts/Enums';
 import { encodeBip21 } from './PaymentRequestUtils';
 import ReverseSwapRepository from './ReverseSwapRepository';
-import { SwapUpdate, CurrencyConfig } from '../consts/Types';
+import { SwapUpdate, CurrencyConfig, PairConfig } from '../consts/Types';
 import { OrderSide, OutputType, CurrencyInfo } from '../proto/boltzrpc_pb';
-import { splitPairId, stringify, generateId, mapToObject, satoshisToCoins } from '../Utils';
 import { PairInstance, PairFactory, SwapInstance, ReverseSwapInstance } from '../consts/Database';
-
-type PairConfig = {
-  base: string;
-  quote: string;
-
-  // If there is a hardcoded rate the CryptoCompare API will not be queried
-  rate?: number;
-};
+import { splitPairId, stringify, generateId, mapToObject, satoshisToCoins, feeMapToObject } from '../Utils';
 
 type Pair = {
   id: string;
@@ -44,6 +37,7 @@ class Service extends EventEmitter {
 
   private pairRepository: PairRepository;
 
+  private feeProvider: FeeProvider;
   private rateProvider: RateProvider;
 
   private pairs = new Map<string, Pair>();
@@ -61,6 +55,7 @@ class Service extends EventEmitter {
     this.swapRepository = new SwapRepository(db.models);
     this.reverseSwapRepository = new ReverseSwapRepository(db.models);
 
+    this.feeProvider = new FeeProvider(this.logger, this.boltz);
     this.rateProvider = new RateProvider(this.logger, rateInterval, currencies);
   }
 
@@ -73,10 +68,10 @@ class Service extends EventEmitter {
     const isUndefinedOrNull = (value: any) => value === undefined || value === null;
 
     const comparePairArrays = (array: PairArray, compare: PairArray, callback: Function) => {
-      array.forEach((pair) => {
+      array.forEach((pair: PairConfig | PairInstance) => {
         let inCompare = false;
 
-        compare.forEach((comparePair) => {
+        compare.forEach((comparePair: PairConfig | PairInstance) => {
           if (pair.base === comparePair.base &&
             pair.quote === comparePair.quote) {
 
@@ -130,6 +125,7 @@ class Service extends EventEmitter {
       }
     };
 
+    this.feeProvider.init(pairs);
     await this.rateProvider.init(dbPairs);
 
     dbPairs.forEach((pair) => {
@@ -175,16 +171,6 @@ class Service extends EventEmitter {
   public getFeeEstimation = async () => {
     const feeEstimation = await this.boltz.getFeeEstimation('', 2);
 
-    const feeMapToObject = (feesMap: [string, number][]) => {
-      const response: any = {};
-
-      feesMap.forEach(([symbol, fee]) => {
-        response[symbol] = fee;
-      });
-
-      return response;
-    };
-
     return feeMapToObject(feeEstimation.feesMap);
   }
 
@@ -218,7 +204,7 @@ class Service extends EventEmitter {
     const satoshi = Number(millisatoshis) / 1000;
 
     this.verifyAmount(satoshi, pairId, side, false, rate);
-    const fee = Math.ceil(10 + (satoshi * 0.01));
+    const fee = await this.feeProvider.getFee(pairId, chainCurrency, satoshi, false);
 
     const {
       address,
@@ -240,7 +226,7 @@ class Service extends EventEmitter {
         lockupAddress: address,
       });
     } catch (error) {
-      throw Errors.SWAP_WITH_INVOICE_EXISTS_ALREADY(invoice);
+      throw Errors.SWAP_WITH_INVOICE_EXISTS_ALREADY();
     }
 
     return {
@@ -265,9 +251,10 @@ class Service extends EventEmitter {
     const { base, quote, rate } = this.getPair(pairId);
 
     const side = this.getOrderSide(orderSide);
+    const chainCurrency = side === OrderSide.BUY ? base : quote;
 
     this.verifyAmount(amount, pairId, side, true, rate);
-    const fee = Math.ceil(1000 + (amount * 0.01));
+    const fee = await this.feeProvider.getFee(pairId, chainCurrency, amount, true);
 
     const {
       invoice,
@@ -277,7 +264,6 @@ class Service extends EventEmitter {
       lockupTransactionHash,
     } = await this.boltz.createReverseSwap(base, quote, side, rate, fee, claimPublicKey, amount);
 
-    const chainCurrency = side === OrderSide.BUY ? base : quote;
     await this.boltz.listenOnAddress(chainCurrency, lockupAddress);
 
     const id = generateId(6);

@@ -216,3 +216,16 @@ export const getSuccessfulTrades = async (swapRepository: SwapRepository, revers
     reverseSwaps,
   };
 };
+
+/**
+ * Converts the reponse of the backend method "getFeeEstimation" to an object
+ */
+export const feeMapToObject = (feesMap: [string, number][]) => {
+  const response: any = {};
+
+  feesMap.forEach(([symbol, fee]) => {
+    response[symbol] = fee;
+  });
+
+  return response;
+};
