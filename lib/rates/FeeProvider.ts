@@ -5,7 +5,7 @@ import { mapToObject, getPairId, feeMapToObject, stringify } from '../Utils';
 
 class FeeProvider {
   // A map between the symbols of the pairs and their percentage fees
-  private percentageFees = new Map<string, number>();
+  public percentageFees = new Map<string, number>();
 
   constructor(private logger: Logger, private boltz: BoltzClient) {}
 
@@ -24,7 +24,9 @@ class FeeProvider {
     const feeMap = feeMapToObject(feeReponse.feesMap);
 
     const baseFee = this.getBaseFee(feeMap[chainCurrency], isReverse);
-    const percentageFee = Math.ceil(this.percentageFees.get(pair)! * amount);
+
+    // Multiply the amount with the percentage fee or with 0 if there is no percentage fee for that pair
+    const percentageFee = Math.ceil((this.percentageFees.get(pair) || 0) * amount);
 
     return baseFee + percentageFee;
   }

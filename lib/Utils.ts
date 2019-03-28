@@ -190,9 +190,9 @@ export const getFeeSymbol = (pairId: string, orderSide: OrderSide, isReverse: bo
   const { base, quote } = splitPairId(pairId);
 
   if (isReverse) {
-    return orderSide === OrderSide.BUY ? quote : base;
-  } else {
     return orderSide === OrderSide.BUY ? base : quote;
+  } else {
+    return orderSide === OrderSide.BUY ? quote : base;
   }
 };
 

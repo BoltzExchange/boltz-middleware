@@ -56,7 +56,7 @@ class Service extends EventEmitter {
     this.reverseSwapRepository = new ReverseSwapRepository(db.models);
 
     this.feeProvider = new FeeProvider(this.logger, this.boltz);
-    this.rateProvider = new RateProvider(this.logger, rateInterval, currencies);
+    this.rateProvider = new RateProvider(this.logger, this.feeProvider, rateInterval, currencies);
   }
 
   public init = async (pairs: PairConfig[]) => {
@@ -155,18 +155,11 @@ class Service extends EventEmitter {
    * Gets all supported pairs and their conversion rates
    */
   public getPairs = () => {
-    return mapToObject(this.rateProvider.rates);
+    return mapToObject(this.rateProvider.pairs);
   }
 
   /**
-   * Gets the exchange limits for all supported pairs
-   */
-  public getLimits = () => {
-    return mapToObject(this.rateProvider.limits);
-  }
-
-  /**
-   *
+   * Gets the fee estimation for all supported currencies in sats per vbyte
    */
   public getFeeEstimation = async () => {
     const feeEstimation = await this.boltz.getFeeEstimation('', 2);
@@ -293,16 +286,18 @@ class Service extends EventEmitter {
     const { base, quote } = splitPairId(pairId);
 
     const pair = this.pairs.get(pairId);
-    const rate = this.rateProvider.rates.get(pairId);
+    const pairInfo = this.rateProvider.pairs.get(pairId);
 
-    if (!pair || !rate) {
+    if (!pair || !pairInfo) {
       throw Errors.PAIR_NOT_SUPPORTED(pairId);
     }
 
     return {
       base,
       quote,
-      rate,
+      rate: pairInfo.rate,
+      limits: pairInfo.limits,
+      fees: pairInfo.fees,
     };
   }
 
@@ -317,7 +312,7 @@ class Service extends EventEmitter {
       satoshis = satoshis * (1 / rate);
     }
 
-    const limits = this.rateProvider.limits.get(pairId);
+    const { limits } = this.getPair(pairId);
 
     if (limits) {
       const amount = satoshisToCoins(satoshis);
