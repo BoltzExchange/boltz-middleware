@@ -29,7 +29,7 @@ describe('RateProvider', () => {
     ['BTC/BTC', 0.005],
   ]);
 
-  const baseFees = {
+  const minerFees = {
     BTC: {
       normal: 280,
       reverse: 306,
@@ -43,11 +43,11 @@ describe('RateProvider', () => {
   const feeProviderMock = mock(FeeProvider);
   when(feeProviderMock.percentageFees).thenReturn(percentageFees);
 
-  when(feeProviderMock.getFee('', 'BTC', 0, false)).thenResolve(baseFees.BTC.normal);
-  when(feeProviderMock.getFee('', 'BTC', 0, true)).thenResolve(baseFees.BTC.reverse);
+  when(feeProviderMock.getFee('', 'BTC', 0, false)).thenResolve(minerFees.BTC.normal);
+  when(feeProviderMock.getFee('', 'BTC', 0, true)).thenResolve(minerFees.BTC.reverse);
 
-  when(feeProviderMock.getFee('', 'LTC', 0, false)).thenResolve(baseFees.LTC.normal);
-  when(feeProviderMock.getFee('', 'LTC', 0, true)).thenResolve(baseFees.LTC.reverse);
+  when(feeProviderMock.getFee('', 'LTC', 0, false)).thenResolve(minerFees.LTC.normal);
+  when(feeProviderMock.getFee('', 'LTC', 0, true)).thenResolve(minerFees.LTC.reverse);
 
   const rateProvider = new RateProvider(Logger.disabledLogger, instance(feeProviderMock), 0.1, [
     {
@@ -124,11 +124,11 @@ describe('RateProvider', () => {
     });
   });
 
-  it('should get base fees', () => {
+  it('should get miner fees', () => {
     const { pairs } = rateProvider;
 
-    expect(pairs.get('BTC/BTC')!.fees.baseFees).to.be.deep.equal({ baseAsset: baseFees.BTC, quoteAsset: baseFees.BTC });
-    expect(pairs.get('LTC/BTC')!.fees.baseFees).to.be.deep.equal({ baseAsset: baseFees.LTC, quoteAsset: baseFees.BTC });
+    expect(pairs.get('BTC/BTC')!.fees.minerFees).to.be.deep.equal({ baseAsset: minerFees.BTC, quoteAsset: minerFees.BTC });
+    expect(pairs.get('LTC/BTC')!.fees.minerFees).to.be.deep.equal({ baseAsset: minerFees.LTC, quoteAsset: minerFees.BTC });
   });
 
   after(async () => {

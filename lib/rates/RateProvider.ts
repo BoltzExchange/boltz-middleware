@@ -10,7 +10,7 @@ type Limits = {
   maximal: number;
 };
 
-type BaseFees = {
+type MinerFees = {
   normal: number;
   reverse: number;
 };
@@ -20,15 +20,15 @@ type Pair = {
   limits: Limits;
   fees: {
     percentage: number;
-    baseFees: {
-      baseAsset: BaseFees,
-      quoteAsset: BaseFees,
+    minerFees: {
+      baseAsset: MinerFees,
+      quoteAsset: MinerFees,
     };
   };
 };
 
 class RateProvider {
-  // A map between the pair ids and the rate, limits and base fee of that pair
+  // A map between the pair ids and the rate, limits and fees of that pair
   public pairs = new Map<string, Pair>();
 
   // A map between quote and their base assets
@@ -68,36 +68,29 @@ class RateProvider {
       this.percentageFees.set(pair, percentage * 100);
     });
 
-    const baseFees = await this.getBaseFees();
+    const minerFees = await this.getMinerFees();
 
     pairs.forEach((pair) => {
       // If a pair has a hardcoded rate the CryptoCompare rate doesn't have to be queried
       if (pair.rate) {
         this.logger.debug(`Setting hardcoded rate for pair ${pair.id}: ${pair.rate}`);
-        const limits = this.limits.get(pair.base);
 
-        if (limits) {
-          this.logger.debug(`Setting limits for hardcoded pair ${pair.id}: ${stringify(limits)}`);
-
-          this.pairs.set(pair.id, {
-            limits,
-            rate: pair.rate,
-            fees: {
-              percentage: this.percentageFees.get(pair.id)!,
-              baseFees: {
-                baseAsset: baseFees.get(pair.base)!,
-                quoteAsset: baseFees.get(pair.quote)!,
-              },
+        this.pairs.set(pair.id, {
+          rate: pair.rate,
+          limits: this.getLimits(pair.id, pair.base, pair.quote, pair.rate),
+          fees: {
+            percentage: this.percentageFees.get(pair.id)!,
+            minerFees: {
+              baseAsset: minerFees.get(pair.base)!,
+              quoteAsset: minerFees.get(pair.quote)!,
             },
-          });
+          },
+        });
 
-          this.hardcodedPairs.set(pair.id, {
-            base: pair.base,
-            quote: pair.quote,
-          });
-        } else {
-          this.logger.error(`Could not get limits for hardcoded pair ${pair.id}`);
-        }
+        this.hardcodedPairs.set(pair.id, {
+          base: pair.base,
+          quote: pair.quote,
+        });
 
         return;
       }
@@ -113,13 +106,13 @@ class RateProvider {
 
     this.logger.silly(`Prepared data for requests to CryptoCompare: ${stringify(mapToObject(this.baseAssetsMap))}`);
 
-    await this.updateRates(baseFees);
+    await this.updateRates(minerFees);
 
     this.logger.debug(`Got pairs: ${stringify(mapToObject(this.pairs))}`);
     this.logger.silly(`Updating rates every ${this.rateUpdateInterval} minutes`);
 
     this.timer = setInterval(async () => {
-      await this.updateRates(await this.getBaseFees());
+      await this.updateRates(await this.getMinerFees());
     }, minutesToMilliseconds(this.rateUpdateInterval));
   }
 
@@ -127,7 +120,7 @@ class RateProvider {
     clearInterval(this.timer);
   }
 
-  private updateRates = async (baseFees: Map<string, BaseFees>) => {
+  private updateRates = async (minerFees: Map<string, MinerFees>) => {
     const promises: Promise<any>[] = [];
 
     // Update the pairs with a variable rate
@@ -146,9 +139,9 @@ class RateProvider {
             limits,
             fees: {
               percentage: this.percentageFees.get(pair)!,
-              baseFees: {
-                baseAsset: baseFees.get(baseAsset)!,
-                quoteAsset: baseFees.get(quoteAsset)!,
+              minerFees: {
+                baseAsset: minerFees.get(baseAsset)!,
+                quoteAsset: minerFees.get(quoteAsset)!,
               },
             },
           });
@@ -158,13 +151,13 @@ class RateProvider {
       }));
     });
 
-    // Update the base fees of the pairs with a hardcoded rate
+    // Update the miner fees of the pairs with a hardcoded rate
     this.hardcodedPairs.forEach(({ base, quote }, pair) => {
       const pairInfo = this.pairs.get(pair)!;
 
-      pairInfo.fees.baseFees = {
-        baseAsset: baseFees.get(base)!,
-        quoteAsset: baseFees.get(quote)!,
+      pairInfo.fees.minerFees = {
+        baseAsset: minerFees.get(base)!,
+        quoteAsset: minerFees.get(quote)!,
       };
 
       this.pairs.set(pair, pairInfo);
@@ -172,7 +165,7 @@ class RateProvider {
 
     await Promise.all(promises);
 
-    this.logger.silly(`Updated pairs: ${stringify(mapToObject(this.pairs))}`);
+    this.logger.silly('Updated pairs');
   }
 
   private getLimits = (pair: string, base: string, quote: string, rate: number) => {
@@ -212,23 +205,23 @@ class RateProvider {
     });
   }
 
-  private getBaseFees = async () => {
-    const baseFees = new Map<string, BaseFees>();
+  private getMinerFees = async () => {
+    const minerFees = new Map<string, MinerFees>();
 
     for (const [symbol] of this.limits) {
-      // The can be emtpy because we just want the base fee
+      // The pair and amount can be emtpy because we just want the miner fee
       const [normal, reverse] = await Promise.all([
         this.feeProvider.getFee('', symbol, 0, false),
         this.feeProvider.getFee('', symbol, 0, true),
       ]);
 
-      baseFees.set(symbol, {
+      minerFees.set(symbol, {
         normal,
         reverse,
       });
     }
 
-    return baseFees;
+    return minerFees;
   }
 }
 

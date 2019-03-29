@@ -14,7 +14,7 @@ import ReverseSwapRepository from './ReverseSwapRepository';
 import { SwapUpdate, CurrencyConfig, PairConfig } from '../consts/Types';
 import { OrderSide, OutputType, CurrencyInfo } from '../proto/boltzrpc_pb';
 import { PairInstance, PairFactory, SwapInstance, ReverseSwapInstance } from '../consts/Database';
-import { splitPairId, stringify, generateId, mapToObject, satoshisToCoins, feeMapToObject } from '../Utils';
+import { splitPairId, stringify, generateId, mapToObject, feeMapToObject } from '../Utils';
 
 type Pair = {
   id: string;
@@ -304,19 +304,17 @@ class Service extends EventEmitter {
   /**
    * Verfies that the requested amount is neither above the maximal nor beneath the minimal
    */
-  private verifyAmount = (satoshis: number, pairId: string, orderSide: OrderSide, isReverse: boolean, rate: number) => {
+  private verifyAmount = (amount: number, pairId: string, orderSide: OrderSide, isReverse: boolean, rate: number) => {
     if (
       (!isReverse && orderSide === OrderSide.SELL) ||
       (isReverse && orderSide === OrderSide.BUY)) {
       // tslint:disable-next-line:no-parameter-reassignment
-      satoshis = satoshis * (1 / rate);
+      amount = amount * (1 / rate);
     }
 
     const { limits } = this.getPair(pairId);
 
     if (limits) {
-      const amount = satoshisToCoins(satoshis);
-
       if (amount > limits.maximal) throw Errors.EXCEED_MAXIMAL_AMOUNT(amount, limits.maximal);
       if (amount < limits.minimal) throw Errors.BENEATH_MINIMAL_AMOUNT(amount, limits.minimal);
     } else {
