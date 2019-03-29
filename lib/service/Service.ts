@@ -159,7 +159,7 @@ class Service extends EventEmitter {
   }
 
   /**
-   * Gets the fee estimation for all supported currencies in sats per vbyte
+   * Gets the fee estimation for all supported currencies
    */
   public getFeeEstimation = async () => {
     const feeEstimation = await this.boltz.getFeeEstimation('', 2);
