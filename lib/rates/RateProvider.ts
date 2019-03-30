@@ -10,9 +10,14 @@ type Limits = {
   maximal: number;
 };
 
+type ReverseMinerFees = {
+  lockup: number;
+  claim: number;
+};
+
 type MinerFees = {
   normal: number;
-  reverse: number;
+  reverse: ReverseMinerFees;
 };
 
 type Pair = {
@@ -210,14 +215,22 @@ class RateProvider {
 
     for (const [symbol] of this.limits) {
       // The pair and amount can be emtpy because we just want the miner fee
-      const [normal, reverse] = await Promise.all([
+      const [normal, reverseLockup] = await Promise.all([
         this.feeProvider.getFee('', symbol, 0, false),
         this.feeProvider.getFee('', symbol, 0, true),
       ]);
 
       minerFees.set(symbol, {
         normal,
-        reverse,
+        reverse: {
+          lockup: reverseLockup,
+
+          // We cannot know what kind of address the user will claim to so we just assume the worst case: P2PKH
+          //
+          // Claiming a P2WSH to a P2PKH address is about 138 bytes and to get the sats per vbyte we divide the
+          // reverse fee by the size of the reverse lockup transaction (153 vbyte)
+          claim: FeeProvider.transactionSizes.reverseClaim * (reverseLockup / FeeProvider.transactionSizes.reverseLockup),
+        },
       });
     }
 

@@ -30,7 +30,6 @@ interface Service {
   emit(event: 'swap.successful', swap: SwapInstance | ReverseSwapInstance): boolean;
 }
 
-// TODO: do not override invoice settled status with transaction confirmed and invoice paid with with transaction confirmed
 class Service extends EventEmitter {
   public swapRepository: SwapRepository;
   public reverseSwapRepository: ReverseSwapRepository;

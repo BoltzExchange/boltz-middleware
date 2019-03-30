@@ -31,12 +31,18 @@ describe('RateProvider', () => {
 
   const minerFees = {
     BTC: {
-      normal: 280,
-      reverse: 306,
+      normal: FeeProvider.transactionSizes.normalClaim * 2,
+      reverse: {
+        lockup: FeeProvider.transactionSizes.reverseLockup * 2,
+        claim: FeeProvider.transactionSizes.reverseClaim * 2,
+      },
     },
     LTC: {
-      normal: 140,
-      reverse: 153,
+      normal: FeeProvider.transactionSizes.normalClaim ,
+      reverse: {
+        lockup: FeeProvider.transactionSizes.reverseLockup,
+        claim: FeeProvider.transactionSizes.reverseClaim,
+      },
     },
   };
 
@@ -44,10 +50,10 @@ describe('RateProvider', () => {
   when(feeProviderMock.percentageFees).thenReturn(percentageFees);
 
   when(feeProviderMock.getFee('', 'BTC', 0, false)).thenResolve(minerFees.BTC.normal);
-  when(feeProviderMock.getFee('', 'BTC', 0, true)).thenResolve(minerFees.BTC.reverse);
+  when(feeProviderMock.getFee('', 'BTC', 0, true)).thenResolve(minerFees.BTC.reverse.lockup);
 
   when(feeProviderMock.getFee('', 'LTC', 0, false)).thenResolve(minerFees.LTC.normal);
-  when(feeProviderMock.getFee('', 'LTC', 0, true)).thenResolve(minerFees.LTC.reverse);
+  when(feeProviderMock.getFee('', 'LTC', 0, true)).thenResolve(minerFees.LTC.reverse.lockup);
 
   const rateProvider = new RateProvider(Logger.disabledLogger, instance(feeProviderMock), 0.1, [
     {
