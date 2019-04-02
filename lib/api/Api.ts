@@ -36,7 +36,6 @@ class Api {
   private registerRoutes = (controller: Controller) => {
     // GET requests
     this.app.route('/getpairs').get(controller.getPairs);
-    this.app.route('/getlimits').get(controller.getLimits);
     this.app.route('/getfeeestimation').get(controller.getFeeEstimation);
 
     // POST requests

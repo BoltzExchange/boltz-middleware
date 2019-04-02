@@ -44,7 +44,7 @@ class Config {
       host: '127.0.0.1',
       port: 9001,
 
-      interval: 15,
+      interval: 5,
     };
 
     this.boltz = {
@@ -90,16 +90,22 @@ class Config {
       {
         base: 'LTC',
         quote: 'BTC',
+
+        fee: 1,
       },
       {
         base: 'BTC',
         quote: 'BTC',
+
+        fee: 0.5,
         rate: 1,
       },
       {
         base: 'LTC',
         quote: 'LTC',
+
         rate: 1,
+        fee: 0.5,
       },
     ];
   }

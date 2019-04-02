@@ -1,3 +1,4 @@
+import Logger from '../Logger';
 import Service from '../service/Service';
 import DiscordClient from './DiscordClient';
 import BoltzClient from '../boltz/BoltzClient';
@@ -22,6 +23,7 @@ class CommandHandler {
   private commands: Map<string, CommandInfo>;
 
   constructor(
+    private logger: Logger,
     private service: Service,
     private boltz: BoltzClient,
     private discord: DiscordClient) {
@@ -44,7 +46,9 @@ class CommandHandler {
         const commandInfo = this.commands.get(command.toLowerCase());
 
         if (commandInfo) {
+          this.logger.silly(`Executing command: ${command}`);
           await commandInfo.executor(args);
+
           return;
         }
       }

@@ -22,3 +22,14 @@ export type CurrencyConfig = {
   minLocalBalance: number;
   minRemoteBalance: number;
 };
+
+export type PairConfig = {
+  base: string;
+  quote: string;
+
+  // Percentage of the amount that will be charged as fee
+  fee?: number;
+
+  // If there is a hardcoded rate the CryptoCompare API will not be queried
+  rate?: number;
+};

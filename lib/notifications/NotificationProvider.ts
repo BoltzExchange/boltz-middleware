@@ -49,6 +49,7 @@ class NotificationProvider {
     this.listenToService();
 
     new CommandHandler(
+      this.logger,
       this.service,
       this.boltz,
       this.discord,

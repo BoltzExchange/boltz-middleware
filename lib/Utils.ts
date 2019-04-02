@@ -190,9 +190,9 @@ export const getFeeSymbol = (pairId: string, orderSide: OrderSide, isReverse: bo
   const { base, quote } = splitPairId(pairId);
 
   if (isReverse) {
-    return orderSide === OrderSide.BUY ? quote : base;
-  } else {
     return orderSide === OrderSide.BUY ? base : quote;
+  } else {
+    return orderSide === OrderSide.BUY ? quote : base;
   }
 };
 
@@ -215,4 +215,17 @@ export const getSuccessfulTrades = async (swapRepository: SwapRepository, revers
     swaps,
     reverseSwaps,
   };
+};
+
+/**
+ * Converts the reponse of the backend method "getFeeEstimation" to an object
+ */
+export const feeMapToObject = (feesMap: [string, number][]) => {
+  const response: any = {};
+
+  feesMap.forEach(([symbol, fee]) => {
+    response[symbol] = fee;
+  });
+
+  return response;
 };

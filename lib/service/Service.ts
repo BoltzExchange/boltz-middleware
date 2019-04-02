@@ -6,22 +6,15 @@ import Database from '../db/Database';
 import SwapRepository from './SwapRepository';
 import PairRepository from './PairRepository';
 import BoltzClient from '../boltz/BoltzClient';
+import FeeProvider from '../rates/FeeProvider';
 import RateProvider from '../rates/RateProvider';
 import { SwapUpdateEvent } from '../consts/Enums';
 import { encodeBip21 } from './PaymentRequestUtils';
 import ReverseSwapRepository from './ReverseSwapRepository';
-import { SwapUpdate, CurrencyConfig } from '../consts/Types';
+import { SwapUpdate, CurrencyConfig, PairConfig } from '../consts/Types';
 import { OrderSide, OutputType, CurrencyInfo } from '../proto/boltzrpc_pb';
-import { splitPairId, stringify, generateId, mapToObject, satoshisToCoins } from '../Utils';
 import { PairInstance, PairFactory, SwapInstance, ReverseSwapInstance } from '../consts/Database';
-
-type PairConfig = {
-  base: string;
-  quote: string;
-
-  // If there is a hardcoded rate the CryptoCompare API will not be queried
-  rate?: number;
-};
+import { splitPairId, stringify, generateId, mapToObject, feeMapToObject } from '../Utils';
 
 type Pair = {
   id: string;
@@ -37,13 +30,13 @@ interface Service {
   emit(event: 'swap.successful', swap: SwapInstance | ReverseSwapInstance): boolean;
 }
 
-// TODO: do not override invoice settled status with transaction confirmed and invoice paid with with transaction confirmed
 class Service extends EventEmitter {
   public swapRepository: SwapRepository;
   public reverseSwapRepository: ReverseSwapRepository;
 
   private pairRepository: PairRepository;
 
+  private feeProvider: FeeProvider;
   private rateProvider: RateProvider;
 
   private pairs = new Map<string, Pair>();
@@ -61,7 +54,8 @@ class Service extends EventEmitter {
     this.swapRepository = new SwapRepository(db.models);
     this.reverseSwapRepository = new ReverseSwapRepository(db.models);
 
-    this.rateProvider = new RateProvider(this.logger, rateInterval, currencies);
+    this.feeProvider = new FeeProvider(this.logger, this.boltz);
+    this.rateProvider = new RateProvider(this.logger, this.feeProvider, rateInterval, currencies);
   }
 
   public init = async (pairs: PairConfig[]) => {
@@ -73,10 +67,10 @@ class Service extends EventEmitter {
     const isUndefinedOrNull = (value: any) => value === undefined || value === null;
 
     const comparePairArrays = (array: PairArray, compare: PairArray, callback: Function) => {
-      array.forEach((pair) => {
+      array.forEach((pair: PairConfig | PairInstance) => {
         let inCompare = false;
 
-        compare.forEach((comparePair) => {
+        compare.forEach((comparePair: PairConfig | PairInstance) => {
           if (pair.base === comparePair.base &&
             pair.quote === comparePair.quote) {
 
@@ -130,6 +124,7 @@ class Service extends EventEmitter {
       }
     };
 
+    this.feeProvider.init(pairs);
     await this.rateProvider.init(dbPairs);
 
     dbPairs.forEach((pair) => {
@@ -159,14 +154,7 @@ class Service extends EventEmitter {
    * Gets all supported pairs and their conversion rates
    */
   public getPairs = () => {
-    return mapToObject(this.rateProvider.rates);
-  }
-
-  /**
-   * Gets the exchange limits for all supported pairs
-   */
-  public getLimits = () => {
-    return mapToObject(this.rateProvider.limits);
+    return mapToObject(this.rateProvider.pairs);
   }
 
   /**
@@ -174,16 +162,6 @@ class Service extends EventEmitter {
    */
   public getFeeEstimation = async () => {
     const feeEstimation = await this.boltz.getFeeEstimation('', 2);
-
-    const feeMapToObject = (feesMap: [string, number][]) => {
-      const response: any = {};
-
-      feesMap.forEach(([symbol, fee]) => {
-        response[symbol] = fee;
-      });
-
-      return response;
-    };
 
     return feeMapToObject(feeEstimation.feesMap);
   }
@@ -218,7 +196,7 @@ class Service extends EventEmitter {
     const satoshi = Number(millisatoshis) / 1000;
 
     this.verifyAmount(satoshi, pairId, side, false, rate);
-    const fee = Math.ceil(10 + (satoshi * 0.01));
+    const fee = await this.feeProvider.getFee(pairId, chainCurrency, satoshi, false);
 
     const {
       address,
@@ -240,7 +218,7 @@ class Service extends EventEmitter {
         lockupAddress: address,
       });
     } catch (error) {
-      throw Errors.SWAP_WITH_INVOICE_EXISTS_ALREADY(invoice);
+      throw Errors.SWAP_WITH_INVOICE_EXISTS_ALREADY();
     }
 
     return {
@@ -265,9 +243,10 @@ class Service extends EventEmitter {
     const { base, quote, rate } = this.getPair(pairId);
 
     const side = this.getOrderSide(orderSide);
+    const chainCurrency = side === OrderSide.BUY ? base : quote;
 
     this.verifyAmount(amount, pairId, side, true, rate);
-    const fee = Math.ceil(1000 + (amount * 0.01));
+    const fee = await this.feeProvider.getFee(pairId, chainCurrency, amount, true);
 
     const {
       invoice,
@@ -277,7 +256,6 @@ class Service extends EventEmitter {
       lockupTransactionHash,
     } = await this.boltz.createReverseSwap(base, quote, side, rate, fee, claimPublicKey, amount);
 
-    const chainCurrency = side === OrderSide.BUY ? base : quote;
     await this.boltz.listenOnAddress(chainCurrency, lockupAddress);
 
     const id = generateId(6);
@@ -307,35 +285,35 @@ class Service extends EventEmitter {
     const { base, quote } = splitPairId(pairId);
 
     const pair = this.pairs.get(pairId);
-    const rate = this.rateProvider.rates.get(pairId);
+    const pairInfo = this.rateProvider.pairs.get(pairId);
 
-    if (!pair || !rate) {
+    if (!pair || !pairInfo) {
       throw Errors.PAIR_NOT_SUPPORTED(pairId);
     }
 
     return {
       base,
       quote,
-      rate,
+      rate: pairInfo.rate,
+      limits: pairInfo.limits,
+      fees: pairInfo.fees,
     };
   }
 
   /**
    * Verfies that the requested amount is neither above the maximal nor beneath the minimal
    */
-  private verifyAmount = (satoshis: number, pairId: string, orderSide: OrderSide, isReverse: boolean, rate: number) => {
+  private verifyAmount = (amount: number, pairId: string, orderSide: OrderSide, isReverse: boolean, rate: number) => {
     if (
       (!isReverse && orderSide === OrderSide.SELL) ||
       (isReverse && orderSide === OrderSide.BUY)) {
       // tslint:disable-next-line:no-parameter-reassignment
-      satoshis = satoshis * (1 / rate);
+      amount = amount * (1 / rate);
     }
 
-    const limits = this.rateProvider.limits.get(pairId);
+    const { limits } = this.getPair(pairId);
 
     if (limits) {
-      const amount = satoshisToCoins(satoshis);
-
       if (amount > limits.maximal) throw Errors.EXCEED_MAXIMAL_AMOUNT(amount, limits.maximal);
       if (amount < limits.minimal) throw Errors.BENEATH_MINIMAL_AMOUNT(amount, limits.minimal);
     } else {

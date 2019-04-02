@@ -55,10 +55,6 @@ class Controller {
     this.successResponse(res, this.service.getPairs());
   }
 
-  public getLimits = async (_req: Request, res: Response) => {
-    this.successResponse(res, this.service.getLimits());
-  }
-
   public getFeeEstimation = async (_req: Request, res: Response) => {
     this.successResponse(res, await this.service.getFeeEstimation());
   }
