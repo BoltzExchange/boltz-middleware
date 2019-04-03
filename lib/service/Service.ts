@@ -314,8 +314,8 @@ class Service extends EventEmitter {
     const { limits } = this.getPair(pairId);
 
     if (limits) {
-      if (amount > limits.maximal) throw Errors.EXCEED_MAXIMAL_AMOUNT(amount, limits.maximal);
-      if (amount < limits.minimal) throw Errors.BENEATH_MINIMAL_AMOUNT(amount, limits.minimal);
+      if (Math.floor(amount) > limits.maximal) throw Errors.EXCEED_MAXIMAL_AMOUNT(amount, limits.maximal);
+      if (Math.ceil(amount) < limits.minimal) throw Errors.BENEATH_MINIMAL_AMOUNT(amount, limits.minimal);
     } else {
       throw Errors.CURRENCY_NOT_SUPPORTED_BY_BACKEND(pairId);
     }
