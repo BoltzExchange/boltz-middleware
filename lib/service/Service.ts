@@ -8,13 +8,13 @@ import PairRepository from './PairRepository';
 import BoltzClient from '../boltz/BoltzClient';
 import FeeProvider from '../rates/FeeProvider';
 import RateProvider from '../rates/RateProvider';
-import { SwapUpdateEvent } from '../consts/Enums';
+import { SwapUpdateEvent, ServiceWarning } from '../consts/Enums';
 import { encodeBip21 } from './PaymentRequestUtils';
 import ReverseSwapRepository from './ReverseSwapRepository';
 import { SwapUpdate, CurrencyConfig, PairConfig } from '../consts/Types';
 import { OrderSide, OutputType, CurrencyInfo } from '../proto/boltzrpc_pb';
-import { PairInstance, PairFactory, SwapInstance, ReverseSwapInstance } from '../consts/Database';
 import { splitPairId, stringify, generateId, mapToObject, feeMapToObject } from '../Utils';
+import { PairInstance, PairFactory, SwapInstance, ReverseSwapInstance } from '../consts/Database';
 
 type Pair = {
   id: string;
@@ -31,6 +31,8 @@ interface Service {
 }
 
 class Service extends EventEmitter {
+  public allowReverseSwaps = true;
+
   public swapRepository: SwapRepository;
   public reverseSwapRepository: ReverseSwapRepository;
 
@@ -154,7 +156,16 @@ class Service extends EventEmitter {
    * Gets all supported pairs and their conversion rates
    */
   public getPairs = () => {
-    return mapToObject(this.rateProvider.pairs);
+    const warnings: ServiceWarning[] = [];
+
+    if (!this.allowReverseSwaps) {
+      warnings.push(ServiceWarning.ReverseSwapsDisabled);
+    }
+
+    return {
+      warnings,
+      pairs: mapToObject(this.rateProvider.pairs),
+    };
   }
 
   /**
@@ -240,6 +251,10 @@ class Service extends EventEmitter {
    * Creates a new reverse Swap from Lightning to the chain
    */
   public createReverseSwap = async (pairId: string, orderSide: string, claimPublicKey: string, amount: number) => {
+    if (!this.allowReverseSwaps) {
+      throw Errors.REVERSE_SWAPS_DISABLED();
+    }
+
     const { base, quote, rate } = this.getPair(pairId);
 
     const side = this.getOrderSide(orderSide);

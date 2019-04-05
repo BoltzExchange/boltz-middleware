@@ -19,3 +19,7 @@ export enum SwapUpdateEvent {
   TransactionRefunded = 'transaction.refunded',
   TransactionConfirmed = 'transaction.confirmed',
 }
+
+export enum ServiceWarning {
+  ReverseSwapsDisabled = 'reverse.swaps.disabled',
+}
