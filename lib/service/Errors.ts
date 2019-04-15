@@ -27,4 +27,8 @@ export default {
     message: 'a swap with this invoice exists already',
     code: concatErrorCode(ErrorCodePrefix.Service, 5),
   }),
+  REVERSE_SWAPS_DISABLED: (): Error => ({
+    message: 'reverse swaps are disabled',
+    code: concatErrorCode(ErrorCodePrefix.Service, 6),
+  }),
 };
