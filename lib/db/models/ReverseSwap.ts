@@ -1,29 +1,35 @@
-import Sequelize from 'sequelize';
-import * as db from '../../consts/Database';
+import { Model, Sequelize, DataTypes } from 'sequelize';
+import Pair from './Pair';
 
-export default (sequelize: Sequelize.Sequelize, dataTypes: Sequelize.DataTypes) => {
-  const attributes: db.SequelizeAttributes<db.ReverseSwapAttributes> = {
-    id: { type: dataTypes.STRING, primaryKey: true, allowNull: false },
-    fee: { type: dataTypes.INTEGER, allowNull: false },
-    pair: { type: dataTypes.STRING, allowNull: false },
-    orderSide: { type: dataTypes.INTEGER, allowNull: false },
-    status: { type: dataTypes.STRING, allowNull: true },
-    invoice: { type: dataTypes.STRING, allowNull: false },
-    preimage: { type: dataTypes.STRING, allowNull: true },
-    transactionId: { type: dataTypes.STRING, allowNull: false },
-  };
+class ReverseSwap extends Model {
+  public id!: string;
+  public fee!: number;
+  public pair!: string;
+  public orderSide!: number;
+  public status!: string;
+  public invoice!: string;
+  public preimage!: string;
+  public transactionId!: string;
 
-  const options: Sequelize.DefineOptions<db.ReverseSwapInstance> = {
-    tableName: 'reverseSwaps',
-  };
+  public static load = (sequelize: Sequelize) => {
+    ReverseSwap.init({
+      id: { type: DataTypes.STRING, primaryKey: true, allowNull: false },
+      fee: { type: DataTypes.INTEGER, allowNull: false },
+      pair: { type: DataTypes.STRING, allowNull: false },
+      orderSide: { type: DataTypes.INTEGER, allowNull: false },
+      status: { type: DataTypes.STRING, allowNull: true },
+      invoice: { type: DataTypes.STRING, allowNull: false },
+      preimage: { type: DataTypes.STRING, allowNull: true },
+      transactionId: { type: DataTypes.STRING, allowNull: false },
+    }, {
+      sequelize,
+      tableName: 'reverseSwaps',
+    });
 
-  const ReverseSwap = sequelize.define<db.ReverseSwapInstance, db.ReverseSwapAttributes>('ReverseSwap', attributes, options);
-
-  ReverseSwap.associate = (models: Sequelize.Models) => {
-    models.ReverseSwap.belongsTo(models.Pair, {
+    ReverseSwap.belongsTo(Pair, {
       foreignKey: 'pair',
     });
-  };
+  }
+}
 
-  return ReverseSwap;
-};
+export default ReverseSwap;

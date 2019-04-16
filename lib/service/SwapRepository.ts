@@ -1,27 +1,33 @@
 import { WhereOptions } from 'sequelize';
-import { Models } from '../db/Database';
-import * as db from '../consts/Database';
+import Swap from '../db/models/Swap';
 
 class SwapRepository {
-  constructor(private models: Models) {}
 
-  public getSwaps = async (options?: WhereOptions<db.SwapFactory>) => {
-    return this.models.Swap.findAll({
+  public getSwaps = async (options?: WhereOptions) => {
+    return Swap.findAll({
       where: options,
     });
   }
 
-  public getSwap = async (options: WhereOptions<db.SwapFactory>) => {
-    return this.models.Swap.findOne({
+  public getSwap = async (options: WhereOptions) => {
+    return Swap.findOne({
       where: options,
     });
   }
 
-  public addSwap = async (swap: db.SwapFactory) => {
-    return this.models.Swap.create(swap);
+  public addSwap = async (swap: {
+    id: string,
+    fee: number,
+    pair: string,
+    orderSide: number,
+    invoice: string,
+    status?: string,
+    lockupAddress: string,
+  }) => {
+    return Swap.create(swap);
   }
 
-  public setSwapStatus = async (swap: db.SwapInstance, status: string) => {
+  public setSwapStatus = async (swap: Swap, status: string) => {
     return swap.update({
       status,
     });

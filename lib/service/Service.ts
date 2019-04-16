@@ -2,7 +2,6 @@ import bolt11 from '@boltz/bolt11';
 import { EventEmitter } from 'events';
 import Errors from './Errors';
 import Logger from '../Logger';
-import Database from '../db/Database';
 import SwapRepository from './SwapRepository';
 import PairRepository from './PairRepository';
 import BoltzClient from '../boltz/BoltzClient';
@@ -11,9 +10,11 @@ import RateProvider from '../rates/RateProvider';
 import { SwapUpdateEvent } from '../consts/Enums';
 import { encodeBip21 } from './PaymentRequestUtils';
 import ReverseSwapRepository from './ReverseSwapRepository';
+import PairInstance from '../db/models/Pair';
+import Swap from '../db/models/Swap';
+import ReverseSwap from '../db/models/ReverseSwap';
 import { SwapUpdate, CurrencyConfig, PairConfig } from '../consts/Types';
 import { OrderSide, OutputType, CurrencyInfo } from '../proto/boltzrpc_pb';
-import { PairInstance, PairFactory, SwapInstance, ReverseSwapInstance } from '../consts/Database';
 import { splitPairId, stringify, generateId, mapToObject, feeMapToObject } from '../Utils';
 
 type Pair = {
@@ -26,8 +27,8 @@ interface Service {
   on(event: 'swap.update', listener: (id: string, message: SwapUpdate) => void): this;
   emit(event: 'swap.update', id: string, message: SwapUpdate): boolean;
 
-  on(event: 'swap.successful', listener: (swap: SwapInstance | ReverseSwapInstance) => void): this;
-  emit(event: 'swap.successful', swap: SwapInstance | ReverseSwapInstance): boolean;
+  on(event: 'swap.successful', listener: (swap: Swap | ReverseSwap) => void): this;
+  emit(event: 'swap.successful', swap: Swap | ReverseSwap): boolean;
 }
 
 class Service extends EventEmitter {
@@ -44,15 +45,14 @@ class Service extends EventEmitter {
   constructor(
     private logger: Logger,
     private boltz: BoltzClient,
-    db: Database,
     rateInterval: number,
     currencies: CurrencyConfig[]) {
 
     super();
 
-    this.pairRepository = new PairRepository(db.models);
-    this.swapRepository = new SwapRepository(db.models);
-    this.reverseSwapRepository = new ReverseSwapRepository(db.models);
+    this.pairRepository = new PairRepository();
+    this.swapRepository = new SwapRepository();
+    this.reverseSwapRepository = new ReverseSwapRepository();
 
     this.feeProvider = new FeeProvider(this.logger, this.boltz);
     this.rateProvider = new RateProvider(this.logger, this.feeProvider, rateInterval, currencies);
@@ -92,12 +92,20 @@ class Service extends EventEmitter {
 
     const promises: Promise<any>[] = [];
 
-    comparePairArrays(dbPairs, pairs, (pair: PairFactory) => {
+    comparePairArrays(dbPairs, pairs, (pair: {
+      base: string,
+      quote: string,
+      rate?: number,
+    }) => {
       promises.push(this.pairRepository.removePair(pair));
       this.logger.debug(`Removing pair from database: ${stringify(pair)}`);
     });
 
-    comparePairArrays(pairs, dbPairs, (pair: PairFactory) => {
+    comparePairArrays(pairs, dbPairs, (pair: {
+      base: string,
+      quote: string,
+      rate?: number,
+    }) => {
       promises.push(this.pairRepository.addPair(pair));
       this.logger.debug(`Adding pair to database: ${stringify(pair)}`);
     });
@@ -341,7 +349,7 @@ class Service extends EventEmitter {
 
       if (swap) {
         if (!swap.status) {
-          await this.updateSwapStatus<SwapInstance>(swap, SwapUpdateEvent.TransactionConfirmed, this.swapRepository.setSwapStatus);
+          await this.updateSwapStatus<Swap>(swap, SwapUpdateEvent.TransactionConfirmed, this.swapRepository.setSwapStatus);
         }
       }
 
@@ -351,7 +359,7 @@ class Service extends EventEmitter {
 
       if (reverseSwap) {
         if (!reverseSwap.status) {
-          await this.updateSwapStatus<ReverseSwapInstance>(
+          await this.updateSwapStatus<ReverseSwap>(
             reverseSwap,
             SwapUpdateEvent.TransactionConfirmed,
             this.reverseSwapRepository.setReverseSwapStatus,
@@ -367,7 +375,7 @@ class Service extends EventEmitter {
         invoice,
       });
 
-      await this.updateSwapStatus<SwapInstance>(swap, SwapUpdateEvent.InvoicePaid, this.swapRepository.setSwapStatus);
+      await this.updateSwapStatus<Swap>(swap, SwapUpdateEvent.InvoicePaid, this.swapRepository.setSwapStatus);
 
       if (swap) {
         swap.status = SwapUpdateEvent.InvoicePaid;
@@ -380,7 +388,7 @@ class Service extends EventEmitter {
         invoice,
       });
 
-      await this.updateSwapStatus<SwapInstance>(swap, SwapUpdateEvent.InvoiceFailedToPay, this.swapRepository.setSwapStatus);
+      await this.updateSwapStatus<Swap>(swap, SwapUpdateEvent.InvoiceFailedToPay, this.swapRepository.setSwapStatus);
     });
 
     this.boltz.on('invoice.settled', async (invoice: string, preimage: string) => {
@@ -412,7 +420,7 @@ class Service extends EventEmitter {
         transactionId,
       });
 
-      await this.updateSwapStatus<ReverseSwapInstance>(
+      await this.updateSwapStatus<ReverseSwap>(
         reverseSwap,
         SwapUpdateEvent.TransactionRefunded,
         this.reverseSwapRepository.setReverseSwapStatus,

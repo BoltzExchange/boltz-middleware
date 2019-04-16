@@ -4,7 +4,8 @@ import Logger from '../Logger';
 import Database from '../db/Database';
 import SwapRepository from '../service/SwapRepository';
 import ReverseSwapRepository from '../service/ReverseSwapRepository';
-import { SwapInstance, ReverseSwapInstance } from '../consts/Database';
+import Swap from '../db/models/Swap';
+import ReverseSwap from '../db/models/ReverseSwap';
 import { getSuccessfulTrades, getFeeSymbol, resolveHome, satoshisToCoins } from '../Utils';
 
 type Entry = {
@@ -25,8 +26,8 @@ export const generateReport = async (argv: Arguments<any>) => {
   const db = new Database(Logger.disabledLogger, resolveHome(dbPath));
   await db.init();
 
-  const swapRepository = new SwapRepository(db.models);
-  const reverseSwapRepository = new ReverseSwapRepository(db.models);
+  const swapRepository = new SwapRepository();
+  const reverseSwapRepository = new ReverseSwapRepository();
 
   const { swaps, reverseSwaps } = await getSuccessfulTrades(swapRepository, reverseSwapRepository);
   const entries = swapsToEntries(swaps, reverseSwaps);
@@ -44,11 +45,11 @@ export const generateReport = async (argv: Arguments<any>) => {
   }
 };
 
-const swapsToEntries = (swaps: SwapInstance[], reverseSwaps: ReverseSwapInstance[]) => {
+const swapsToEntries = (swaps: Swap[], reverseSwaps: ReverseSwap[]) => {
   const entries: Entry[] = [];
 
-  const pushToEntries = (array: SwapInstance[] | ReverseSwapInstance[], isReverse: boolean) => {
-    array.forEach((swap: SwapInstance | ReverseSwapInstance) => {
+  const pushToEntries = (array: Swap[] | ReverseSwap[], isReverse: boolean) => {
+    array.forEach((swap: Swap | ReverseSwap) => {
       entries.push({
         date: new Date(swap.createdAt),
         pair: swap.pair,

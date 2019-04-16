@@ -2,7 +2,7 @@ import Logger from '../Logger';
 import FeeProvider from './FeeProvider';
 import CryptoCompare from './CryptoCompare';
 import { CurrencyConfig } from '../consts/Types';
-import { PairInstance } from '../consts/Database';
+import PairInstance from '../db/models/Pair';
 import { getPairId, stringify, mapToObject, minutesToMilliseconds } from '../Utils';
 
 type Limits = {

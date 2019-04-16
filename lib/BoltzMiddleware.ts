@@ -31,7 +31,6 @@ class BoltzMiddleware {
     this.service = new Service(
       this.logger,
       this.boltzClient,
-      this.db,
       this.config.api.interval,
       this.config.currencies,
     );

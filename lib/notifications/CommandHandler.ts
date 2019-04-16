@@ -3,7 +3,8 @@ import Service from '../service/Service';
 import DiscordClient from './DiscordClient';
 import BoltzClient from '../boltz/BoltzClient';
 import { OutputType } from '../proto/boltzrpc_pb';
-import { SwapInstance, ReverseSwapInstance, Swap } from '../consts/Database';
+import Swap from '../db/models/Swap';
+import ReverseSwap from '../db/models/ReverseSwap';
 import { satoshisToCoins, parseBalances, getFeeSymbol, stringify, getSuccessfulTrades } from '../Utils';
 
 enum Command {
@@ -171,11 +172,11 @@ class CommandHandler {
     throw `could not find output type: ${type}`;
   }
 
-  private getFeeFromSwaps = (swaps: SwapInstance[], reverseSwaps: ReverseSwapInstance[]) => {
+  private getFeeFromSwaps = (swaps: Swap[], reverseSwaps: ReverseSwap[]) => {
     // A map between the symbols of the currencies and the fees collected on that chain
     const fees = new Map<string, number>();
 
-    const getFeeFromSwapMap = (array: Swap[], isReverse: boolean) => {
+    const getFeeFromSwapMap = (array: Swap[] | ReverseSwap[], isReverse: boolean) => {
       array.forEach((swap) => {
         const feeSymbol = getFeeSymbol(swap.pair, swap.orderSide, isReverse);
         const fee = fees.get(feeSymbol);

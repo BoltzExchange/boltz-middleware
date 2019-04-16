@@ -6,7 +6,8 @@ import { CurrencyConfig } from '../consts/Types';
 import { SwapUpdateEvent } from '../consts/Enums';
 import { OutputType, OrderSide } from '../proto/boltzrpc_pb';
 import BoltzClient, { ConnectionStatus } from '../boltz/BoltzClient';
-import { SwapInstance, ReverseSwapInstance } from '../consts/Database';
+import Swap from '../db/models/Swap';
+import ReverseSwap from '../db/models/ReverseSwap';
 import { minutesToMilliseconds, satoshisToCoins, splitPairId, parseBalances, getFeeSymbol } from '../Utils';
 
 type NotificationConfig = {
@@ -212,7 +213,7 @@ class NotificationProvider {
     );
   }
 
-  private sendSwapSuccessful = async (swap: SwapInstance | ReverseSwapInstance) => {
+  private sendSwapSuccessful = async (swap: Swap | ReverseSwap) => {
     const isReverse = swap.status === SwapUpdateEvent.InvoiceSettled;
     const feeSymbol = getFeeSymbol(swap.pair, swap.orderSide, isReverse);
 
