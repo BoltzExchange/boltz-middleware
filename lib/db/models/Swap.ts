@@ -9,6 +9,8 @@ class Swap extends Model {
   public status!: string;
   public invoice!: string;
   public lockupAddress!: string;
+  public createdAt!: string;
+  public updatedAt!: string;
 
   public static load = (sequelize: Sequelize) => {
     Swap.init({
@@ -19,6 +21,8 @@ class Swap extends Model {
       status: { type: DataTypes.STRING, allowNull: true },
       invoice: { type: DataTypes.STRING, unique: true, allowNull: false },
       lockupAddress: { type: DataTypes.STRING, allowNull: false },
+      createdAt: { type: DataTypes.STRING, allowNull: false },
+      updatedAt: { type: DataTypes.STRING, allowNull: true },
     }, {
       sequelize,
       tableName: 'swaps',

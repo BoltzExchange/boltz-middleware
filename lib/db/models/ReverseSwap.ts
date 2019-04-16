@@ -10,6 +10,8 @@ class ReverseSwap extends Model {
   public invoice!: string;
   public preimage!: string;
   public transactionId!: string;
+  public createdAt!: string;
+  public updatedAt!: string;
 
   public static load = (sequelize: Sequelize) => {
     ReverseSwap.init({
@@ -21,6 +23,8 @@ class ReverseSwap extends Model {
       invoice: { type: DataTypes.STRING, allowNull: false },
       preimage: { type: DataTypes.STRING, allowNull: true },
       transactionId: { type: DataTypes.STRING, allowNull: false },
+      createdAt: { type: DataTypes.STRING, allowNull: false },
+      updatedAt: { type: DataTypes.STRING, allowNull: true },
     }, {
       sequelize,
       tableName: 'reverseSwaps',
