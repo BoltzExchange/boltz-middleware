@@ -80,7 +80,7 @@ describe('RateProvider', () => {
   rateProvider['cryptoCompare'] = instance(cryptoCompareMock);
 
   const db = new Database(Logger.disabledLogger, ':memory:');
-  const pairRepository = new PairRepository(db.models);
+  const pairRepository = new PairRepository();
 
   before(async () => {
     await db.init();
