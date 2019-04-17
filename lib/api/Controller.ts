@@ -197,11 +197,15 @@ class Controller {
     return response;
   }
 
-  private errorResponse = (res: Response, error: any, statusCode = 400) => {
+  public errorResponse = (res: Response, error: any, statusCode = 400) => {
     if (typeof error === 'string') {
       this.invalidArgumentsResponse(res, statusCode, error);
     } else {
-      this.invalidArgumentsResponse(res, statusCode, error.message);
+      if (error.details) {
+        this.invalidArgumentsResponse(res, statusCode, error.details);
+      } else {
+        this.invalidArgumentsResponse(res, statusCode, error.message);
+      }
     }
   }
 
