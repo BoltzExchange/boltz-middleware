@@ -14,15 +14,15 @@ class Swap extends Model {
 
   public static load = (sequelize: Sequelize) => {
     Swap.init({
-      id: { type: DataTypes.STRING, primaryKey: true, allowNull: false },
-      fee: { type: DataTypes.INTEGER, allowNull: false },
-      pair: { type: DataTypes.STRING, allowNull: false },
-      orderSide: { type: DataTypes.INTEGER, allowNull: false },
-      status: { type: DataTypes.STRING, allowNull: true },
-      invoice: { type: DataTypes.STRING, unique: true, allowNull: false },
-      lockupAddress: { type: DataTypes.STRING, allowNull: false },
-      createdAt: { type: DataTypes.STRING, allowNull: false },
-      updatedAt: { type: DataTypes.STRING, allowNull: true },
+      id: { type: new DataTypes.STRING(255), primaryKey: true, allowNull: false },
+      fee: { type: new DataTypes.INTEGER(), allowNull: false },
+      pair: { type: new DataTypes.STRING(255), allowNull: false },
+      orderSide: { type: new DataTypes.INTEGER(), allowNull: false },
+      status: { type: new DataTypes.STRING(255), allowNull: true },
+      invoice: { type: new DataTypes.STRING(255), unique: true, allowNull: false },
+      lockupAddress: { type: new DataTypes.STRING(255), allowNull: false },
+      createdAt: { type: new DataTypes.STRING(255), allowNull: false },
+      updatedAt: { type: new DataTypes.STRING(255), allowNull: true },
     }, {
       sequelize,
       tableName: 'swaps',

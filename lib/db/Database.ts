@@ -43,9 +43,9 @@ class Database {
   }
 
   private loadModels = ()  => {
+    Pair.load(this.sequelize);
     Swap.load(this.sequelize);
     ReverseSwap.load(this.sequelize);
-    Pair.load(this.sequelize);
   }
 }
 

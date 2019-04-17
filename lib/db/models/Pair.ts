@@ -9,10 +9,10 @@ class Pair extends Model {
 
   public static load = (sequelize: Sequelize) => {
     Pair.init({
-      id: { type: DataTypes.STRING, primaryKey: true },
-      base: { type: DataTypes.STRING, allowNull: false },
-      quote: { type: DataTypes.STRING, allowNull: false },
-      rate: { type: DataTypes.FLOAT, allowNull: true },
+      id: { type: new DataTypes.STRING(255), primaryKey: true },
+      base: { type: new DataTypes.STRING(255), allowNull: false },
+      quote: { type: new DataTypes.STRING(255), allowNull: false },
+      rate: { type: new DataTypes.FLOAT(), allowNull: true },
     }, {
       sequelize,
       tableName: 'pairs',
