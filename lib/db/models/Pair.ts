@@ -20,7 +20,7 @@ class Pair extends Model {
     });
 
     Pair.beforeBulkCreate(pairs => pairs.forEach(pair => pair.id = getPairId(pair)));
-    Pair.beforeCreate(pair => pair.id = getPairId(pair));
+    Pair.beforeCreate((pair) => { pair.id = getPairId(pair); });
   }
 }
 
