@@ -1,34 +1,43 @@
-import Sequelize from 'sequelize';
-import * as db from '../../consts/Database';
+import { Sequelize, Model, DataTypes } from 'sequelize';
+import Pair from './Pair';
 
-export default (sequelize: Sequelize.Sequelize, dataTypes: Sequelize.DataTypes) => {
-  const attributes: db.SequelizeAttributes<db.SwapAttributes> = {
-    id: { type: dataTypes.STRING, primaryKey: true, allowNull: false },
-    fee: { type: dataTypes.INTEGER, allowNull: false },
-    pair: { type: dataTypes.STRING, allowNull: false },
-    orderSide: { type: dataTypes.INTEGER, allowNull: false },
-    status: { type: dataTypes.STRING, allowNull: true },
-    invoice: { type: dataTypes.STRING, unique: true, allowNull: false },
-    lockupAddress: { type: dataTypes.STRING, allowNull: false },
-  };
+class Swap extends Model {
+  public id!: string;
+  public fee!: number;
+  public pair!: string;
+  public orderSide!: number;
+  public status!: string;
+  public invoice!: string;
+  public lockupAddress!: string;
+  public createdAt!: string;
+  public updatedAt!: string;
 
-  const options: Sequelize.DefineOptions<db.SwapInstance> = {
-    tableName: 'swaps',
-    indexes: [
-      {
-        unique: true,
-        fields: ['id', 'invoice'],
-      },
-    ],
-  };
+  public static load = (sequelize: Sequelize) => {
+    Swap.init({
+      id: { type: new DataTypes.STRING(255), primaryKey: true, allowNull: false },
+      fee: { type: new DataTypes.INTEGER(), allowNull: false },
+      pair: { type: new DataTypes.STRING(255), allowNull: false },
+      orderSide: { type: new DataTypes.INTEGER(), allowNull: false },
+      status: { type: new DataTypes.STRING(255), allowNull: true },
+      invoice: { type: new DataTypes.STRING(255), unique: true, allowNull: false },
+      lockupAddress: { type: new DataTypes.STRING(255), allowNull: false },
+      createdAt: { type: new DataTypes.STRING(255), allowNull: false },
+      updatedAt: { type: new DataTypes.STRING(255), allowNull: true },
+    }, {
+      sequelize,
+      tableName: 'swaps',
+      indexes: [
+        {
+          unique: true,
+          fields: ['id', 'invoice'],
+        },
+      ],
+    });
 
-  const Swap = sequelize.define<db.SwapInstance, db.SwapAttributes>('Swap', attributes, options);
-
-  Swap.associate = (models: Sequelize.Models) => {
-    models.Swap.belongsTo(models.Pair, {
+    Swap.belongsTo(Pair, {
       foreignKey: 'pair',
     });
-  };
+  }
+}
 
-  return Swap;
-};
+export default Swap;

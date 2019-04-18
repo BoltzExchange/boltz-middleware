@@ -1,33 +1,40 @@
 import { WhereOptions } from 'sequelize';
-import { Models } from '../db/Database';
-import * as db from '../consts/Database';
+import ReverseSwap from '../db/models/ReverseSwap';
 
 class ReverseSwapRepository {
-  constructor(private models: Models) {}
 
-  public getReverseSwaps = async (options?: WhereOptions<db.ReverseSwapFactory>) => {
-    return this.models.ReverseSwap.findAll({
+  public getReverseSwaps = async (options?: WhereOptions) => {
+    return ReverseSwap.findAll({
       where: options,
     });
   }
 
-  public getReverseSwap = async (options: WhereOptions<db.ReverseSwapFactory>) => {
-    return this.models.ReverseSwap.findOne({
+  public getReverseSwap = async (options: WhereOptions) => {
+    return ReverseSwap.findOne({
       where: options,
     });
   }
 
-  public addReverseSwap = async (reverseSwap: db.ReverseSwapFactory) => {
-    return this.models.ReverseSwap.create(reverseSwap);
+  public addReverseSwap = async (reverseSwap: {
+    id: string,
+    fee: number,
+    pair: string,
+    orderSide: number,
+    invoice: string,
+    transactionId: string;
+    preimage?: string;
+    status?: string,
+  }) => {
+    return ReverseSwap.create(reverseSwap);
   }
 
-  public setReverseSwapStatus = async (reverseSwap: db.ReverseSwapInstance, status: string) => {
+  public setReverseSwapStatus = async (reverseSwap: ReverseSwap, status: string) => {
     return reverseSwap.update({
       status,
     });
   }
 
-  public updateReverseSwap = async (reverseSwap: db.ReverseSwapInstance, keys: object) => {
+  public updateReverseSwap = async (reverseSwap: ReverseSwap, keys: object) => {
     return reverseSwap.update(keys);
   }
 }

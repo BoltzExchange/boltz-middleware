@@ -44,7 +44,7 @@ class Controller {
         if (event !== SwapUpdateEvent.InvoiceSettled) {
           this.pendingSwapInfos.set(reverseSwap.id, { event });
         } else {
-          this.pendingSwapInfos.set(reverseSwap.id, { event, preimage: reverseSwap.preimage! });
+          this.pendingSwapInfos.set(reverseSwap.id, { event, preimage: reverseSwap.preimage });
         }
       }
     });

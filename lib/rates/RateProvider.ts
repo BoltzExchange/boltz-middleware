@@ -2,7 +2,7 @@ import Logger from '../Logger';
 import FeeProvider from './FeeProvider';
 import CryptoCompare from './CryptoCompare';
 import { CurrencyConfig } from '../consts/Types';
-import { PairInstance } from '../consts/Database';
+import Pair from '../db/models/Pair';
 import { getPairId, stringify, mapToObject, minutesToMilliseconds } from '../Utils';
 
 type Limits = {
@@ -20,7 +20,7 @@ type MinerFees = {
   reverse: ReverseMinerFees;
 };
 
-type Pair = {
+type PairType = {
   rate: number;
   limits: Limits;
   fees: {
@@ -34,7 +34,7 @@ type Pair = {
 
 class RateProvider {
   // A map between the pair ids and the rate, limits and fees of that pair
-  public pairs = new Map<string, Pair>();
+  public pairs = new Map<string, PairType>();
 
   // A map between quote and their base assets
   // So that there is just one CryptoCompare request per quote asset needed
@@ -67,7 +67,7 @@ class RateProvider {
   /**
    * Gets a map of of rates from CryptoCompare for the provided pairs
    */
-  public init = async (pairs: PairInstance[]) => {
+  public init = async (pairs: Pair[]) => {
     this.feeProvider.percentageFees.forEach((percentage, pair) => {
       // Multiply with 100 to get the percentage
       this.percentageFees.set(pair, percentage * 100);
