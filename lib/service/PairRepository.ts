@@ -1,19 +1,25 @@
-import { Models } from '../db/Database';
-import * as db from '../consts/Database';
+import Pair from '../db/models/Pair';
 
 class PairRepository {
-  constructor(private models: Models) {}
 
   public getPairs = async () => {
-    return this.models.Pair.findAll({});
+    return Pair.findAll({});
   }
 
-  public addPair = async (pair: db.PairFactory) => {
-    return this.models.Pair.create(<db.PairAttributes>pair);
+  public addPair = async (pair: {
+    base: string,
+    quote: string,
+    rate?: number,
+  }) => {
+    return Pair.create(pair);
   }
 
-  public removePair = async (pair: db.PairFactory) => {
-    return this.models.Pair.destroy({
+  public removePair = async (pair: {
+    base: string,
+    quote: string,
+    rate?: number,
+  }) => {
+    return Pair.destroy({
       where: {
         base: pair.base,
         quote: pair.quote,

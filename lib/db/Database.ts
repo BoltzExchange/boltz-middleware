@@ -1,18 +1,11 @@
-import fs from 'fs';
-import path from 'path';
-import Sequelize from 'sequelize';
+import { Sequelize } from 'sequelize';
 import Logger from '../Logger';
-import * as db from '../consts/Database';
-
-type Models = {
-  Pair: Sequelize.Model<db.PairInstance, db.PairAttributes>;
-  Swap: Sequelize.Model<db.SwapInstance, db.SwapAttributes>;
-  ReverseSwap: Sequelize.Model<db.ReverseSwapInstance, db.ReverseSwapAttributes>;
-};
+import Swap from './models/Swap';
+import ReverseSwap from './models/ReverseSwap';
+import Pair from './models/Pair';
 
 class Database {
-  public sequelize: Sequelize.Sequelize;
-  public models: Models;
+  public sequelize: Sequelize;
 
   /**
    * @param storage the file path to the SQLite databse; if ':memory:' the databse will be stored in the memory
@@ -25,7 +18,7 @@ class Database {
       operatorsAliases: false,
     });
 
-    this.models = this.loadModels();
+    this.loadModels();
   }
 
   public init = async () => {
@@ -37,11 +30,11 @@ class Database {
       throw error;
     }
 
-    await this.models.Pair.sync(),
+    await Pair.sync(),
 
     await Promise.all([
-      this.models.Swap.sync(),
-      this.models.ReverseSwap.sync(),
+      Swap.sync(),
+      ReverseSwap.sync(),
     ]);
   }
 
@@ -49,28 +42,11 @@ class Database {
     await this.sequelize.close();
   }
 
-  private loadModels = (): Models => {
-    const models: { [index: string]: Sequelize.Model<any, any> } = {};
-    const modelsFolder = path.join(__dirname, 'models');
-
-    fs.readdirSync(modelsFolder)
-      .filter(file => (file.indexOf('.') !== 0) && (file !== path.basename(__filename)) &&
-       (file.endsWith('.js') || file.endsWith('.ts')) && !file.endsWith('.d.ts'))
-      .forEach((file) => {
-        const model = this.sequelize.import(path.join(modelsFolder, file));
-        models[model.name] = model;
-      });
-
-    Object.keys(models).forEach((key) => {
-      const model = models[key];
-      if (model.associate) {
-        model.associate(models);
-      }
-    });
-
-    return <Models>models;
+  private loadModels = ()  => {
+    Pair.load(this.sequelize);
+    Swap.load(this.sequelize);
+    ReverseSwap.load(this.sequelize);
   }
 }
 
 export default Database;
-export { Models };

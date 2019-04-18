@@ -1,26 +1,27 @@
-import Sequelize from 'sequelize';
+import { Model, Sequelize, DataTypes } from 'sequelize';
 import { getPairId } from '../../Utils';
-import * as db from '../../consts/Database';
 
-export default (sequelize: Sequelize.Sequelize, dataTypes: Sequelize.DataTypes) => {
-  const attributes: db.SequelizeAttributes<db.PairAttributes> = {
-    id: { type: dataTypes.STRING, primaryKey: true },
-    base: { type: dataTypes.STRING, allowNull: false },
-    quote: { type: dataTypes.STRING, allowNull: false },
-    rate: { type: dataTypes.FLOAT, allowNull: true },
-  };
+class Pair extends Model {
+  public id!: string;
+  public base!: string;
+  public quote!: string;
+  public rate!: number;
 
-  const options: Sequelize.DefineOptions<db.PairInstance> = {
-    tableName: 'pairs',
-    timestamps: false,
-  };
+  public static load = (sequelize: Sequelize) => {
+    Pair.init({
+      id: { type: new DataTypes.STRING(255), primaryKey: true },
+      base: { type: new DataTypes.STRING(255), allowNull: false },
+      quote: { type: new DataTypes.STRING(255), allowNull: false },
+      rate: { type: new DataTypes.FLOAT(), allowNull: true },
+    }, {
+      sequelize,
+      tableName: 'pairs',
+      timestamps: false,
+    });
 
-  const Pair = sequelize.define<db.PairInstance, db.PairAttributes>('Pair', attributes, options);
+    Pair.beforeBulkCreate(pairs => pairs.forEach(pair => pair.id = getPairId(pair)));
+    Pair.beforeCreate((pair) => { pair.id = getPairId(pair); });
+  }
+}
 
-  Pair.associate = (models: Sequelize.Models) => {
-    models.Pair.beforeBulkCreate(pairs => pairs.forEach(pair => pair.id = getPairId(pair)));
-    models.Pair.beforeCreate(pair => pair.id = getPairId(pair));
-  };
-
-  return Pair;
-};
+export default Pair;

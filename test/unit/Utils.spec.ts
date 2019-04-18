@@ -1,7 +1,6 @@
 import os from 'os';
 import { expect } from 'chai';
 import * as utils from '../../lib/Utils';
-import { PairFactory } from '../../lib/consts/Database';
 
 describe('Utils', () => {
   const randomRange = (max: number): number => {
@@ -10,7 +9,7 @@ describe('Utils', () => {
 
   let pairId: string;
 
-  const pair: PairFactory = {
+  const pair: {base: string, quote: string } = {
     base: 'BTC',
     quote: 'LTC',
   };
