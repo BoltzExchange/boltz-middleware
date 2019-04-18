@@ -7,17 +7,17 @@ import PairRepository from './PairRepository';
 import BoltzClient from '../boltz/BoltzClient';
 import FeeProvider from '../rates/FeeProvider';
 import RateProvider from '../rates/RateProvider';
-import { SwapUpdateEvent } from '../consts/Enums';
 import { encodeBip21 } from './PaymentRequestUtils';
 import ReverseSwapRepository from './ReverseSwapRepository';
-import PairInstance from '../db/models/Pair';
-import Swap from '../db/models/Swap';
-import ReverseSwap from '../db/models/ReverseSwap';
+import { SwapUpdateEvent, ServiceWarning } from '../consts/Enums';
 import { SwapUpdate, CurrencyConfig, PairConfig } from '../consts/Types';
 import { OrderSide, OutputType, CurrencyInfo } from '../proto/boltzrpc_pb';
 import { splitPairId, stringify, generateId, mapToObject, feeMapToObject } from '../Utils';
+import Swap from '../db/models/Swap';
+import ReverseSwap from '../db/models/ReverseSwap';
+import Pair from '../db/models/Pair';
 
-type Pair = {
+type PairType = {
   id: string;
   base: string;
   quote: string;
@@ -32,6 +32,8 @@ interface Service {
 }
 
 class Service extends EventEmitter {
+  public allowReverseSwaps = true;
+
   public swapRepository: SwapRepository;
   public reverseSwapRepository: ReverseSwapRepository;
 
@@ -40,7 +42,7 @@ class Service extends EventEmitter {
   private feeProvider: FeeProvider;
   private rateProvider: RateProvider;
 
-  private pairs = new Map<string, Pair>();
+  private pairs = new Map<string, PairType>();
 
   constructor(
     private logger: Logger,
@@ -62,15 +64,15 @@ class Service extends EventEmitter {
     // Update the pairs in the database with the ones in the config
     let dbPairs = await this.pairRepository.getPairs();
 
-    type PairArray = PairConfig[] | PairInstance[];
+    type PairArray = PairConfig[] | Pair[];
 
     const isUndefinedOrNull = (value: any) => value === undefined || value === null;
 
     const comparePairArrays = (array: PairArray, compare: PairArray, callback: Function) => {
-      array.forEach((pair: PairConfig | PairInstance) => {
+      array.forEach((pair: PairConfig | Pair) => {
         let inCompare = false;
 
-        compare.forEach((comparePair: PairConfig | PairInstance) => {
+        compare.forEach((comparePair: PairConfig | Pair) => {
           if (pair.base === comparePair.base &&
             pair.quote === comparePair.quote) {
 
@@ -162,7 +164,16 @@ class Service extends EventEmitter {
    * Gets all supported pairs and their conversion rates
    */
   public getPairs = () => {
-    return mapToObject(this.rateProvider.pairs);
+    const warnings: ServiceWarning[] = [];
+
+    if (!this.allowReverseSwaps) {
+      warnings.push(ServiceWarning.ReverseSwapsDisabled);
+    }
+
+    return {
+      warnings,
+      pairs: mapToObject(this.rateProvider.pairs),
+    };
   }
 
   /**
@@ -184,9 +195,19 @@ class Service extends EventEmitter {
   /**
    * Broadcasts a hex encoded transaction on the specified network
    */
-  public broadcastTransaction = (currency: string, transactionHex: string) => {
+  public broadcastTransaction = async (currency: string, transactionHex: string) => {
     this.logger.silly(`Broadcasting ${currency} transaction: ${transactionHex}`);
-    return this.boltz.broadcastTransaction(currency, transactionHex);
+
+    try {
+      const response = await this.boltz.broadcastTransaction(currency, transactionHex);
+      return response;
+    } catch (error) {
+      if (error.details === 'non-final (code 64)') {
+        throw Errors.TRANSACTION_NOT_FINAL();
+      } else {
+        throw error;
+      }
+    }
   }
 
   /**
@@ -248,6 +269,10 @@ class Service extends EventEmitter {
    * Creates a new reverse Swap from Lightning to the chain
    */
   public createReverseSwap = async (pairId: string, orderSide: string, claimPublicKey: string, amount: number) => {
+    if (!this.allowReverseSwaps) {
+      throw Errors.REVERSE_SWAPS_DISABLED();
+    }
+
     const { base, quote, rate } = this.getPair(pairId);
 
     const side = this.getOrderSide(orderSide);

@@ -8,11 +8,13 @@ import ReverseSwap from '../db/models/ReverseSwap';
 import { satoshisToCoins, parseBalances, getFeeSymbol, stringify, getSuccessfulTrades } from '../Utils';
 
 enum Command {
-  GetBalance = 'getbalance',
+  Help = 'help',
+
   GetFees = 'getfees',
   SwapInfo = 'swapinfo',
+  GetBalance = 'getbalance',
   NewAddress = 'newaddress',
-  Help = 'help',
+  ToggleReverseSwaps = 'togglereverse',
 }
 
 type CommandInfo = {
@@ -30,11 +32,13 @@ class CommandHandler {
     private discord: DiscordClient) {
 
     this.commands = new Map<string, CommandInfo>([
-      [Command.GetBalance, { description: 'gets the balance of the wallet and channels', executor: this.getBalance }],
-      [Command.GetFees, { description: 'gets the accumulated fees', executor: this.getFees }],
-      [Command.SwapInfo, { description: 'gets all available information about a (reverse) swap', executor: this.swapInfo }],
-      [Command.NewAddress, { description: 'generates a new address for a currency', executor: this.newAddress }],
       [Command.Help, { description: 'gets a list of all available commands', executor: this.help }],
+
+      [Command.GetFees, { description: 'gets the accumulated fees', executor: this.getFees }],
+      [Command.NewAddress, { description: 'generates a new address for a currency', executor: this.newAddress }],
+      [Command.GetBalance, { description: 'gets the balance of the wallet and channels', executor: this.getBalance }],
+      [Command.SwapInfo, { description: 'gets all available information about a (reverse) swap', executor: this.swapInfo }],
+      [Command.ToggleReverseSwaps, { description: 'enables or disables reverse swaps', executor: this.toggleReverseSwaps }],
     ]);
 
     this.discord.on('message', async (message: string) => {
@@ -146,6 +150,12 @@ class CommandHandler {
     } catch (error) {
       await this.discord.sendMessage(`Could not generate address: ${error}`);
     }
+  }
+
+  private toggleReverseSwaps = async () => {
+    this.service.allowReverseSwaps = !this.service.allowReverseSwaps;
+
+    await this.discord.sendMessage(`${this.service.allowReverseSwaps ? 'Enabled' : 'Disabled'} reverse swaps`);
   }
 
   private help = async () => {
