@@ -14,6 +14,8 @@ export type SwapUpdate = {
 export type CurrencyConfig = {
   symbol: string;
 
+  timeoutBlockNumber: number;
+
   maxSwapAmount: number;
   minSwapAmount: number;
 

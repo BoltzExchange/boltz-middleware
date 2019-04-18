@@ -43,6 +43,7 @@ class Service extends EventEmitter {
   private rateProvider: RateProvider;
 
   private pairs = new Map<string, PairType>();
+  private currencies: CurrencyConfig[];
 
   constructor(
     private logger: Logger,
@@ -58,6 +59,7 @@ class Service extends EventEmitter {
 
     this.feeProvider = new FeeProvider(this.logger, this.boltz);
     this.rateProvider = new RateProvider(this.logger, this.feeProvider, rateInterval, currencies);
+    this.currencies = currencies;
   }
 
   public init = async (pairs: PairConfig[]) => {
@@ -216,6 +218,12 @@ class Service extends EventEmitter {
   public createSwap = async (pairId: string, orderSide: string, invoice: string, refundPublicKey: string) => {
     const { base, quote, rate } = this.getPair(pairId);
 
+    const chainConfig = this.getChainConfig(base);
+
+    if (!!chainConfig) {
+      throw Errors.CURRENCY_NOT_SUPPORTED_BY_BACKEND(base);
+    }
+
     const side = this.getOrderSide(orderSide);
 
     const chainCurrency = side === OrderSide.BUY ? quote : base;
@@ -232,7 +240,8 @@ class Service extends EventEmitter {
       redeemScript,
       expectedAmount,
       timeoutBlockHeight,
-    } = await this.boltz.createSwap(base, quote, side, rate, fee, invoice, refundPublicKey, OutputType.COMPATIBILITY);
+    } = await this.boltz.createSwap(base, quote, side, rate, fee, invoice, 
+        refundPublicKey, chainConfig!.timeoutBlockNumber, OutputType.COMPATIBILITY);
     await this.boltz.listenOnAddress(chainCurrency, address);
 
     const id = generateId(6);
@@ -275,6 +284,12 @@ class Service extends EventEmitter {
 
     const { base, quote, rate } = this.getPair(pairId);
 
+    const chainConfig = this.getChainConfig(base);
+
+    if (!!chainConfig) {
+      throw Errors.CURRENCY_NOT_SUPPORTED_BY_BACKEND(base);
+    }
+
     const side = this.getOrderSide(orderSide);
     const chainCurrency = side === OrderSide.BUY ? base : quote;
 
@@ -287,7 +302,7 @@ class Service extends EventEmitter {
       lockupAddress,
       lockupTransaction,
       lockupTransactionHash,
-    } = await this.boltz.createReverseSwap(base, quote, side, rate, fee, claimPublicKey, amount);
+    } = await this.boltz.createReverseSwap(base, quote, side, rate, fee, claimPublicKey, amount, chainConfig!.timeoutBlockNumber);
 
     await this.boltz.listenOnAddress(chainCurrency, lockupAddress);
 
@@ -392,6 +407,13 @@ class Service extends EventEmitter {
         }
       }
     });
+  }
+
+  private getChainConfig = (symbol: string): CurrencyConfig | undefined => {
+    const config = this.currencies.find((asset: CurrencyConfig) => {
+      return asset.symbol === symbol;
+    });
+    return config;
   }
 
   private listenInvoices = () => {
