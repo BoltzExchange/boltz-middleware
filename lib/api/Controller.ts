@@ -197,11 +197,15 @@ class Controller {
     return response;
   }
 
-  private errorResponse = (res: Response, error: any, statusCode = 400) => {
+  public errorResponse = (res: Response, error: any, statusCode = 400) => {
     if (typeof error === 'string') {
-      this.invalidArgumentsResponse(res, statusCode, error);
+      this.writeErrorResponse(res, statusCode, error);
     } else {
-      this.invalidArgumentsResponse(res, statusCode, error.message);
+      if (error.details) {
+        this.writeErrorResponse(res, statusCode, error.details);
+      } else {
+        this.writeErrorResponse(res, statusCode, error.message);
+      }
     }
   }
 
@@ -215,7 +219,7 @@ class Controller {
     res.status(201).json(data);
   }
 
-  private invalidArgumentsResponse = (res: Response, statusCode: number, error: string) => {
+  private writeErrorResponse = (res: Response, statusCode: number, error: string) => {
     this.logger.warn(`Request failed: ${error}`);
 
     this.setContentTypeJson(res);

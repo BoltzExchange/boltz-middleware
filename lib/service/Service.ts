@@ -8,9 +8,9 @@ import PairRepository from './PairRepository';
 import BoltzClient from '../boltz/BoltzClient';
 import FeeProvider from '../rates/FeeProvider';
 import RateProvider from '../rates/RateProvider';
-import { SwapUpdateEvent, ServiceWarning } from '../consts/Enums';
 import { encodeBip21 } from './PaymentRequestUtils';
 import ReverseSwapRepository from './ReverseSwapRepository';
+import { SwapUpdateEvent, ServiceWarning } from '../consts/Enums';
 import { SwapUpdate, CurrencyConfig, PairConfig } from '../consts/Types';
 import { OrderSide, OutputType, CurrencyInfo } from '../proto/boltzrpc_pb';
 import { splitPairId, stringify, generateId, mapToObject, feeMapToObject } from '../Utils';
@@ -187,9 +187,19 @@ class Service extends EventEmitter {
   /**
    * Broadcasts a hex encoded transaction on the specified network
    */
-  public broadcastTransaction = (currency: string, transactionHex: string) => {
+  public broadcastTransaction = async (currency: string, transactionHex: string) => {
     this.logger.silly(`Broadcasting ${currency} transaction: ${transactionHex}`);
-    return this.boltz.broadcastTransaction(currency, transactionHex);
+
+    try {
+      const response = await this.boltz.broadcastTransaction(currency, transactionHex);
+      return response;
+    } catch (error) {
+      if (error.details === 'non-final (code 64)') {
+        throw Errors.TRANSACTION_NOT_FINAL();
+      } else {
+        throw error;
+      }
+    }
   }
 
   /**

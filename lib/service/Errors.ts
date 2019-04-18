@@ -31,4 +31,8 @@ export default {
     message: 'reverse swaps are disabled',
     code: concatErrorCode(ErrorCodePrefix.Service, 6),
   }),
+  TRANSACTION_NOT_FINAL: (): Error => ({
+    message: 'please wait until your lockup transaction has 10 confirmations before you try to refund',
+    code: concatErrorCode(ErrorCodePrefix.Service, 7),
+  }),
 };
