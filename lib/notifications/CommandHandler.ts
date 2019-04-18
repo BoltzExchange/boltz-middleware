@@ -5,7 +5,7 @@ import BoltzClient from '../boltz/BoltzClient';
 import { OutputType } from '../proto/boltzrpc_pb';
 import Swap from '../db/models/Swap';
 import ReverseSwap from '../db/models/ReverseSwap';
-import { satoshisToCoins, parseBalances, getFeeSymbol, stringify, getSuccessfulTrades } from '../Utils';
+import { satoshisToCoins, parseBalances, getFeeSymbol, stringify, getSuccessfulTrades, getPairId } from '../Utils';
 
 enum Command {
   Help = 'help',
@@ -209,5 +209,9 @@ class CommandHandler {
     await this.discord.sendMessage(`Could not find swap with id: ${id}`);
   }
 }
+
+export {
+  getPairId,
+};
 
 export default CommandHandler;
