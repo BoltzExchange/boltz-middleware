@@ -52,9 +52,9 @@ class Service extends EventEmitter {
 
     super();
 
-    this.pairRepository = new PairRepository(db.models);
-    this.swapRepository = new SwapRepository(db.models);
-    this.reverseSwapRepository = new ReverseSwapRepository(db.models);
+    this.pairRepository = new PairRepository();
+    this.swapRepository = new SwapRepository();
+    this.reverseSwapRepository = new ReverseSwapRepository();
 
     this.feeProvider = new FeeProvider(this.logger, this.boltz);
     this.rateProvider = new RateProvider(this.logger, this.feeProvider, rateInterval, currencies);
@@ -205,7 +205,7 @@ class Service extends EventEmitter {
   /**
    * Creates a new Swap from the chain to Lightning
    */
-  public createSwap = async (pairId: string, orderSide: string, invoice: string, refundPublicKey: string, timeoutNumber?: number) => {
+  public createSwap = async (pairId: string, orderSide: string, invoice: string, refundPublicKey: string) => {
     const { base, quote, rate } = this.getPair(pairId);
 
     const side = this.getOrderSide(orderSide);
@@ -224,7 +224,7 @@ class Service extends EventEmitter {
       redeemScript,
       expectedAmount,
       timeoutBlockHeight,
-    } = await this.boltz.createSwap(base, quote, side, rate, fee, invoice, refundPublicKey, timeoutNumber, OutputType.COMPATIBILITY);
+    } = await this.boltz.createSwap(base, quote, side, rate, fee, invoice, refundPublicKey, OutputType.COMPATIBILITY);
     await this.boltz.listenOnAddress(chainCurrency, address);
 
     const id = generateId(6);
@@ -260,7 +260,7 @@ class Service extends EventEmitter {
   /**
    * Creates a new reverse Swap from Lightning to the chain
    */
-  public createReverseSwap = async (pairId: string, orderSide: string, claimPublicKey: string, amount: number, timeoutBlockNumber?: number) => {
+  public createReverseSwap = async (pairId: string, orderSide: string, claimPublicKey: string, amount: number) => {
     if (!this.allowReverseSwaps) {
       throw Errors.REVERSE_SWAPS_DISABLED();
     }
@@ -279,7 +279,7 @@ class Service extends EventEmitter {
       lockupAddress,
       lockupTransaction,
       lockupTransactionHash,
-    } = await this.boltz.createReverseSwap(base, quote, side, rate, fee, claimPublicKey, amount, timeoutBlockNumber);
+    } = await this.boltz.createReverseSwap(base, quote, side, rate, fee, claimPublicKey, amount);
 
     await this.boltz.listenOnAddress(chainCurrency, lockupAddress);
 
