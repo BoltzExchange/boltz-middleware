@@ -1,12 +1,6 @@
 import os from 'os';
 import path from 'path';
-import { SwapUpdateEvent } from './consts/Enums';
-import SwapRepository from './service/SwapRepository';
-import ReverseSwapRepository from './service/ReverseSwapRepository';
 import { GetBalanceResponse, Balance, OrderSide } from './proto/boltzrpc_pb';
-import Pair from './db/models/Pair';
-import ReverseSwap from './db/models/ReverseSwap';
-import Swap from './db/models/Swap';
 import { PairConfig } from './consts/Types';
 
 const idPossibilities = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
@@ -29,7 +23,7 @@ export const generateId = (length: number): string => {
 /**
  * Get the pair id of a pair
  */
-export const getPairId = (pair: Pair | PairConfig): string => {
+export const getPairId = (pair: {base: string, quote: string } | PairConfig): string => {
   return `${pair.base}/${pair.quote}`;
 };
 
@@ -201,27 +195,6 @@ export const getFeeSymbol = (pairId: string, orderSide: OrderSide, isReverse: bo
   } else {
     return orderSide === OrderSide.BUY ? quote : base;
   }
-};
-
-/**
- * Gets all successful (reverse) swaps
- */
-export const getSuccessfulTrades = async (swapRepository: SwapRepository, reverseSwapRepository: ReverseSwapRepository):
-  Promise<{ swaps: Swap[], reverseSwaps: ReverseSwap[] }> => {
-
-  const [swaps, reverseSwaps] = await Promise.all([
-    swapRepository.getSwaps({
-      status: SwapUpdateEvent.InvoicePaid,
-    }),
-    reverseSwapRepository.getReverseSwaps({
-      status: SwapUpdateEvent.InvoiceSettled,
-    }),
-  ]);
-
-  return {
-    swaps,
-    reverseSwaps,
-  };
 };
 
 /**

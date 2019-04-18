@@ -5,7 +5,31 @@ import BoltzClient from '../boltz/BoltzClient';
 import { OutputType } from '../proto/boltzrpc_pb';
 import Swap from '../db/models/Swap';
 import ReverseSwap from '../db/models/ReverseSwap';
-import { satoshisToCoins, parseBalances, getFeeSymbol, stringify, getSuccessfulTrades, getPairId } from '../Utils';
+import { SwapUpdateEvent } from '../consts/Enums';
+import SwapRepository from '../service/SwapRepository';
+import ReverseSwapRepository from '../service/ReverseSwapRepository';
+import { satoshisToCoins, parseBalances, getFeeSymbol, stringify } from '../Utils';
+
+/**
+ * Gets all successful (reverse) swaps
+ */
+export const getSuccessfulTrades = async (swapRepository: SwapRepository, reverseSwapRepository: ReverseSwapRepository):
+  Promise<{ swaps: Swap[], reverseSwaps: ReverseSwap[] }> => {
+
+  const [swaps, reverseSwaps] = await Promise.all([
+    swapRepository.getSwaps({
+      status: SwapUpdateEvent.InvoicePaid,
+    }),
+    reverseSwapRepository.getReverseSwaps({
+      status: SwapUpdateEvent.InvoiceSettled,
+    }),
+  ]);
+
+  return {
+    swaps,
+    reverseSwaps,
+  };
+};
 
 enum Command {
   Help = 'help',
@@ -209,9 +233,5 @@ class CommandHandler {
     await this.discord.sendMessage(`Could not find swap with id: ${id}`);
   }
 }
-
-export {
-  getPairId,
-};
 
 export default CommandHandler;

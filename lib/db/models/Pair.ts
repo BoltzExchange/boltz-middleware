@@ -1,5 +1,5 @@
 import { Model, Sequelize, DataTypes } from 'sequelize';
-import { getPairId } from '../../notifications/CommandHandler';
+import { getPairId } from '../../Utils';
 
 class Pair extends Model {
   public id!: string;

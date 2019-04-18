@@ -6,7 +6,8 @@ import SwapRepository from '../service/SwapRepository';
 import ReverseSwapRepository from '../service/ReverseSwapRepository';
 import Swap from '../db/models/Swap';
 import ReverseSwap from '../db/models/ReverseSwap';
-import { getSuccessfulTrades, getFeeSymbol, resolveHome, satoshisToCoins } from '../Utils';
+import { getFeeSymbol, resolveHome, satoshisToCoins } from '../Utils';
+import { getSuccessfulTrades } from '../notifications/CommandHandler';
 
 type Entry = {
   date: Date;
