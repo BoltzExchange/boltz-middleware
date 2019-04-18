@@ -240,7 +240,7 @@ class Service extends EventEmitter {
       redeemScript,
       expectedAmount,
       timeoutBlockHeight,
-    } = await this.boltz.createSwap(base, quote, side, rate, fee, invoice, 
+    } = await this.boltz.createSwap(base, quote, side, rate, fee, invoice,
         refundPublicKey, chainConfig!.timeoutBlockNumber, OutputType.COMPATIBILITY);
     await this.boltz.listenOnAddress(chainCurrency, address);
 
