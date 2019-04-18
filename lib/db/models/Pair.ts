@@ -1,5 +1,4 @@
 import { Model, Sequelize, DataTypes } from 'sequelize';
-import { getPairId } from '../../Utils';
 
 class Pair extends Model {
   public id!: string;
@@ -19,8 +18,8 @@ class Pair extends Model {
       timestamps: false,
     });
 
-    Pair.beforeBulkCreate(pairs => pairs.forEach(pair => pair.id = getPairId(pair)));
-    Pair.beforeCreate((pair) => { pair.id = getPairId(pair); });
+    Pair.beforeBulkCreate(pairs => pairs.forEach(pair => pair.id = `${pair.base}/${pair.quote}`));
+    Pair.beforeCreate((pair) => { pair.id = `${pair.base}/${pair.quote}`; });
   }
 }
 
