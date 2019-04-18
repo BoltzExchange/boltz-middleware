@@ -1,3 +1,4 @@
+import { Op } from 'sequelize';
 import Pair from '../db/models/Pair';
 
 class PairRepository {
@@ -21,8 +22,12 @@ class PairRepository {
   }) => {
     return Pair.destroy({
       where: {
-        base: pair.base,
-        quote: pair.quote,
+        base: {
+          [Op.eq]: pair.base,
+        },
+        quote: {
+          [Op.eq]: pair.quote,
+        },
       },
     });
   }

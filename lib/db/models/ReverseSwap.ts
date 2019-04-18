@@ -23,8 +23,6 @@ class ReverseSwap extends Model {
       invoice: { type: new DataTypes.STRING(255), allowNull: false },
       preimage: { type: new DataTypes.STRING(255), allowNull: true },
       transactionId: { type: new DataTypes.STRING(255), allowNull: false },
-      createdAt: { type: new DataTypes.STRING(255), allowNull: false },
-      updatedAt: { type: new DataTypes.STRING(255), allowNull: true },
     }, {
       sequelize,
       tableName: 'reverseSwaps',

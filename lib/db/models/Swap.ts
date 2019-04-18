@@ -21,8 +21,6 @@ class Swap extends Model {
       status: { type: new DataTypes.STRING(255), allowNull: true },
       invoice: { type: new DataTypes.STRING(255), unique: true, allowNull: false },
       lockupAddress: { type: new DataTypes.STRING(255), allowNull: false },
-      createdAt: { type: new DataTypes.STRING(255), allowNull: false },
-      updatedAt: { type: new DataTypes.STRING(255), allowNull: true },
     }, {
       sequelize,
       tableName: 'swaps',
