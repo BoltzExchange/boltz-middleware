@@ -12,6 +12,8 @@ describe('RateProvider', () => {
     maxSwapAmount: 1000000,
     minSwapAmount: 1000,
 
+    timeoutBlockNumber: 10,
+
     minWalletBalance: 0,
 
     minLocalBalance: 0,
