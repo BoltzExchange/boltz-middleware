@@ -6,42 +6,20 @@ import BoltzClient from '../boltz/BoltzClient';
 import { OutputType } from '../proto/boltzrpc_pb';
 import Swap from '../db/models/Swap';
 import ReverseSwap from '../db/models/ReverseSwap';
-import { SwapUpdateEvent } from '../consts/Enums';
-import SwapRepository from '../service/SwapRepository';
-import ReverseSwapRepository from '../service/ReverseSwapRepository';
+import { getSuccessfulTrades } from '../report/Report';
+import BackupScheduler from '../backup/BackupScheduler';
 import { satoshisToCoins, parseBalances, getFeeSymbol, stringify } from '../Utils';
-
-/**
- * Gets all successful (reverse) swaps
- */
-export const getSuccessfulTrades = async (swapRepository: SwapRepository, reverseSwapRepository: ReverseSwapRepository):
-  Promise<{ swaps: Swap[], reverseSwaps: ReverseSwap[] }> => {
-
-  const [swaps, reverseSwaps] = await Promise.all([
-    swapRepository.getSwaps({
-      status: {
-        [Op.eq]: SwapUpdateEvent.InvoicePaid,
-      },
-    }),
-    reverseSwapRepository.getReverseSwaps({
-      status: {
-        [Op.eq]: SwapUpdateEvent.InvoiceSettled,
-      },
-    }),
-  ]);
-
-  return {
-    swaps,
-    reverseSwaps,
-  };
-};
 
 enum Command {
   Help = 'help',
 
+  // Commands that retrieve information
   GetFees = 'getfees',
   SwapInfo = 'swapinfo',
   GetBalance = 'getbalance',
+
+  // Commands that generate a value or trigger a function
+  Backup = 'backup',
   NewAddress = 'newaddress',
   ToggleReverseSwaps = 'togglereverse',
 }
@@ -56,17 +34,20 @@ class CommandHandler {
 
   constructor(
     private logger: Logger,
+    private discord: DiscordClient,
     private service: Service,
     private boltz: BoltzClient,
-    private discord: DiscordClient) {
+    private backupScheduler: BackupScheduler) {
 
     this.commands = new Map<string, CommandInfo>([
       [Command.Help, { description: 'gets a list of all available commands', executor: this.help }],
 
       [Command.GetFees, { description: 'gets the accumulated fees', executor: this.getFees }],
-      [Command.NewAddress, { description: 'generates a new address for a currency', executor: this.newAddress }],
       [Command.GetBalance, { description: 'gets the balance of the wallet and channels', executor: this.getBalance }],
       [Command.SwapInfo, { description: 'gets all available information about a (reverse) swap', executor: this.swapInfo }],
+
+      [Command.Backup, { description: 'uploads a backup of the databases', executor: this.backup }],
+      [Command.NewAddress, { description: 'generates a new address for a currency', executor: this.newAddress }],
       [Command.ToggleReverseSwaps, { description: 'enables or disables reverse swaps', executor: this.toggleReverseSwaps }],
     ]);
 
@@ -91,9 +72,19 @@ class CommandHandler {
     });
   }
 
-  /**
+  /*
    * Command executors
    */
+
+  private help = async () => {
+    let message = 'Commands:\n';
+
+    this.commands.forEach((info, command) => {
+      message += `\n**${command}**: ${info.description}`;
+    });
+
+    await this.discord.sendMessage(message);
+  }
 
   private getBalance = async () => {
     const balances = await parseBalances(await this.boltz.getBalance());
@@ -191,17 +182,17 @@ class CommandHandler {
     await this.discord.sendMessage(`${this.service.allowReverseSwaps ? 'Enabled' : 'Disabled'} reverse swaps`);
   }
 
-  private help = async () => {
-    let message = 'Commands:\n';
+  private backup = async () => {
+    try {
+      await this.backupScheduler.uploadDatabases(new Date());
 
-    this.commands.forEach((info, command) => {
-      message += `\n**${command}**: ${info.description}`;
-    });
-
-    await this.discord.sendMessage(message);
+      await this.discord.sendMessage('Uploaded backup of databases');
+    } catch (error) {
+      await this.discord.sendMessage(`Could not upload backup: ${error}`);
+    }
   }
 
-  /**
+  /*
    * Helper functions
    */
 
@@ -220,7 +211,7 @@ class CommandHandler {
     const fees = new Map<string, number>();
 
     const getFeeFromSwapMap = (array: Swap[] | ReverseSwap[], isReverse: boolean) => {
-      array.forEach((swap) => {
+      array.forEach((swap: Swap | ReverseSwap) => {
         const feeSymbol = getFeeSymbol(swap.pair, swap.orderSide, isReverse);
         const fee = fees.get(feeSymbol);
 

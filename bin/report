@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-const { generateReport } = require('../dist/report/Report');
+const { reportCli } = require('../dist/report/Report');
 
 const { argv } = require('yargs').options({
   dbpath: {
@@ -18,4 +18,4 @@ delete argv.$0;
 delete argv.help;
 delete argv.version;
 
-generateReport(argv);
+reportCli(argv);

@@ -1,13 +1,14 @@
 import fs from 'fs';
+import { Op } from 'sequelize';
 import { Arguments } from 'yargs';
 import Logger from '../Logger';
+import Swap from '../db/models/Swap';
 import Database from '../db/Database';
+import { SwapUpdateEvent } from '../consts/Enums';
+import ReverseSwap from '../db/models/ReverseSwap';
 import SwapRepository from '../service/SwapRepository';
 import ReverseSwapRepository from '../service/ReverseSwapRepository';
-import Swap from '../db/models/Swap';
-import ReverseSwap from '../db/models/ReverseSwap';
 import { getFeeSymbol, resolveHome, satoshisToCoins } from '../Utils';
-import { getSuccessfulTrades } from '../notifications/CommandHandler';
 
 type Entry = {
   date: Date;
@@ -19,17 +20,24 @@ type Entry = {
   feeCurrency: string;
 };
 
-export const generateReport = async (argv: Arguments<any>) => {
+export const reportCli = async (argv: Arguments<any>) => {
   // Get the path to the database from the command line arguments or
-  // use the default one if none was specified
+  // use a default one if none was specified
   const dbPath = argv.dbpath || '~/.boltz-middleware/boltz.db';
 
   const db = new Database(Logger.disabledLogger, resolveHome(dbPath));
   await db.init();
 
-  const swapRepository = new SwapRepository();
-  const reverseSwapRepository = new ReverseSwapRepository();
+  const csv = await generateReport(new SwapRepository(), new ReverseSwapRepository());
 
+  if (argv.reportpath) {
+    fs.writeFileSync(resolveHome(argv.reportpath), csv);
+  } else {
+    console.log(csv);
+  }
+};
+
+export const generateReport = async (swapRepository: SwapRepository, reverseSwapRepository: ReverseSwapRepository) => {
   const { swaps, reverseSwaps } = await getSuccessfulTrades(swapRepository, reverseSwapRepository);
   const entries = swapsToEntries(swaps, reverseSwaps);
 
@@ -37,13 +45,7 @@ export const generateReport = async (argv: Arguments<any>) => {
     return a.date.getTime() - b.date.getTime();
   });
 
-  const csv = arrayToCsv(entries);
-
-  if (argv.reportpath) {
-    fs.writeFileSync(resolveHome(argv.reportpath), csv);
-  } else {
-    console.log(csv);
-  }
+  return arrayToCsv(entries);
 };
 
 const swapsToEntries = (swaps: Swap[], reverseSwaps: ReverseSwap[]) => {
@@ -67,6 +69,31 @@ const swapsToEntries = (swaps: Swap[], reverseSwaps: ReverseSwap[]) => {
   pushToEntries(reverseSwaps, true);
 
   return entries;
+};
+
+/**
+ * Gets all successful (reverse) swaps
+ */
+export const getSuccessfulTrades = async (swapRepository: SwapRepository, reverseSwapRepository: ReverseSwapRepository):
+  Promise<{ swaps: Swap[], reverseSwaps: ReverseSwap[] }> => {
+
+  const [swaps, reverseSwaps] = await Promise.all([
+    swapRepository.getSwaps({
+      status: {
+        [Op.eq]: SwapUpdateEvent.InvoicePaid,
+      },
+    }),
+    reverseSwapRepository.getReverseSwaps({
+      status: {
+        [Op.eq]: SwapUpdateEvent.InvoiceSettled,
+      },
+    }),
+  ]);
+
+  return {
+    swaps,
+    reverseSwaps,
+  };
 };
 
 const getSwapType = (orderSide: number, isReverse: boolean) => {
