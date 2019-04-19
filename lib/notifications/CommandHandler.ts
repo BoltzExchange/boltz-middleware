@@ -1,3 +1,4 @@
+import { Op } from 'sequelize';
 import Logger from '../Logger';
 import Service from '../service/Service';
 import DiscordClient from './DiscordClient';
@@ -18,10 +19,14 @@ export const getSuccessfulTrades = async (swapRepository: SwapRepository, revers
 
   const [swaps, reverseSwaps] = await Promise.all([
     swapRepository.getSwaps({
-      status: SwapUpdateEvent.InvoicePaid,
+      status: {
+        [Op.eq]: SwapUpdateEvent.InvoicePaid,
+      },
     }),
     reverseSwapRepository.getReverseSwaps({
-      status: SwapUpdateEvent.InvoiceSettled,
+      status: {
+        [Op.eq]: SwapUpdateEvent.InvoiceSettled,
+      },
     }),
   ]);
 
@@ -135,7 +140,9 @@ class CommandHandler {
     }
 
     const swap = await this.service.swapRepository.getSwap({
-      id,
+      id: {
+        [Op.eq]: id,
+      },
     });
 
     if (swap) {
@@ -144,7 +151,9 @@ class CommandHandler {
     } else {
       // Query for a reverse swap because there was no normal one found with the specified id
       const reverseSwap = await this.service.reverseSwapRepository.getReverseSwap({
-        id,
+        id: {
+          [Op.eq]: id,
+        },
       });
 
       if (reverseSwap) {

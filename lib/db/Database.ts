@@ -1,8 +1,8 @@
 import { Sequelize } from 'sequelize';
 import Logger from '../Logger';
+import Pair from './models/Pair';
 import Swap from './models/Swap';
 import ReverseSwap from './models/ReverseSwap';
-import Pair from './models/Pair';
 
 class Database {
   public sequelize: Sequelize;
@@ -13,9 +13,8 @@ class Database {
   constructor(private logger: Logger, private storage: string) {
     this.sequelize = new Sequelize({
       storage,
-      logging: this.logger.silly,
       dialect: 'sqlite',
-      operatorsAliases: false,
+      logging: this.logger.silly,
     });
 
     this.loadModels();
@@ -44,6 +43,7 @@ class Database {
 
   private loadModels = ()  => {
     Pair.load(this.sequelize);
+
     Swap.load(this.sequelize);
     ReverseSwap.load(this.sequelize);
   }

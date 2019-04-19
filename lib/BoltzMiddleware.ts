@@ -47,10 +47,8 @@ class BoltzMiddleware {
   }
 
   public start = async () => {
-    await Promise.all([
-      this.db.init(),
-      this.boltzClient.connect(),
-    ]);
+    await this.db.init(),
+    await this.boltzClient.connect(),
 
     await this.service.init(this.config.pairs);
     await this.notifications.init();
