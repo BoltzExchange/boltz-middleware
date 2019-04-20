@@ -2,9 +2,7 @@ import { readFileSync } from 'fs';
 import { scheduleJob } from 'node-schedule';
 import { Storage, Bucket } from '@google-cloud/storage';
 import Logger from '../Logger';
-import { generateReport } from '../report/Report';
-import SwapRepository from '../service/SwapRepository';
-import ReverseSwapRepository from '../service/ReverseSwapRepository';
+import Report from '../report/Report';
 
 type BackupConfig = {
   email: string;
@@ -26,8 +24,7 @@ class BackupScheduler {
     private logger: Logger,
     private dbpath: string,
     private config: BackupConfig,
-    private swapRepository: SwapRepository,
-    private reverseSwapRepository: ReverseSwapRepository) {
+    private report: Report) {
 
     if (
       config.email === '' ||
@@ -74,7 +71,7 @@ class BackupScheduler {
     }
 
     const file = this.bucket.file('report.csv');
-    const data = await generateReport(this.swapRepository, this.reverseSwapRepository);
+    const data = await this.report.generate();
 
     await file.save(data);
 

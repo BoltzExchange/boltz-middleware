@@ -2,6 +2,7 @@ import { Arguments } from 'yargs';
 import Api from './api/Api';
 import Config from './Config';
 import Logger from './Logger';
+import Report from './report/Report';
 import Database from './db/Database';
 import Service from './service/Service';
 import BoltzClient from './boltz/BoltzClient';
@@ -41,8 +42,10 @@ class BoltzMiddleware {
       this.logger,
       this.config.dbpath,
       this.config.backup,
-      this.service.swapRepository,
-      this.service.reverseSwapRepository,
+      new Report(
+        this.service.swapRepository,
+        this.service.reverseSwapRepository,
+      ),
     );
 
     this.notifications = new NotificationProvider(

@@ -6,7 +6,7 @@ import BoltzClient from '../boltz/BoltzClient';
 import { OutputType } from '../proto/boltzrpc_pb';
 import Swap from '../db/models/Swap';
 import ReverseSwap from '../db/models/ReverseSwap';
-import { getSuccessfulTrades } from '../report/Report';
+import Report from '../report/Report';
 import BackupScheduler from '../backup/BackupScheduler';
 import { satoshisToCoins, parseBalances, getFeeSymbol, stringify } from '../Utils';
 
@@ -112,7 +112,7 @@ class CommandHandler {
   private getFees = async () => {
     let message = 'Fees:\n';
 
-    const { swaps, reverseSwaps } = await getSuccessfulTrades(this.service.swapRepository, this.service.reverseSwapRepository);
+    const { swaps, reverseSwaps } = await Report.getSuccessfulTrades(this.service.swapRepository, this.service.reverseSwapRepository);
     const fees = this.getFeeFromSwaps(swaps, reverseSwaps);
 
     fees.forEach((fee, symbol) => {

@@ -2,7 +2,7 @@ import { Bucket, File } from '@google-cloud/storage';
 import { mock, instance, verify, deepEqual, when, anything, anyString } from 'ts-mockito';
 import Logger from '../../../lib/Logger';
 import Swap from '../../../lib/db/models/Swap';
-import { generateReport } from '../../../lib/report/Report';
+import Report from '../../../lib/report/Report';
 import SwapRepository from '../../../lib/service/SwapRepository';
 import ReverseSwapRepository from '../../../lib/service/ReverseSwapRepository';
 import BackupScheduler, { BackupConfig } from '../../../lib/backup/BackupScheduler';
@@ -31,6 +31,11 @@ describe('BackupScheduler', () => {
   when(bucketMock.file('report.csv')).thenReturn(instance(fileMock));
   const bucket = instance(bucketMock);
 
+  const report = new Report(
+    swapRepository,
+    reverseSwapRepository,
+  );
+
   const backupConfig: BackupConfig = {
     email: '',
     privatekeypath: '',
@@ -46,8 +51,7 @@ describe('BackupScheduler', () => {
     Logger.disabledLogger,
     dbPath,
     backupConfig,
-    swapRepository,
-    reverseSwapRepository,
+    report,
   );
 
   backupScheduler['bucket'] = bucket;
@@ -81,8 +85,8 @@ describe('BackupScheduler', () => {
   it('should upload the report', async () => {
     await backupScheduler.uploadReport();
 
-    const data = await generateReport(swapRepository, reverseSwapRepository);
+    const csv = await report.generate();
 
-    verify(fileMock.save(data)).once();
+    verify(fileMock.save(csv)).once();
   });
 });
