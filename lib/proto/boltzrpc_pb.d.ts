@@ -850,6 +850,9 @@ export class SendCoinsRequest extends jspb.Message {
     getSatPerVbyte(): number;
     setSatPerVbyte(value: number): void;
 
+    getSendAll(): boolean;
+    setSendAll(value: boolean): void;
+
 
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): SendCoinsRequest.AsObject;
@@ -867,6 +870,7 @@ export namespace SendCoinsRequest {
         address: string,
         amount: number,
         satPerVbyte: number,
+        sendAll: boolean,
     }
 }
 
@@ -892,6 +896,48 @@ export namespace SendCoinsResponse {
     export type AsObject = {
         transactionHash: string,
         vout: number,
+    }
+}
+
+export class SubscribeChannelBackupsRequest extends jspb.Message { 
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): SubscribeChannelBackupsRequest.AsObject;
+    static toObject(includeInstance: boolean, msg: SubscribeChannelBackupsRequest): SubscribeChannelBackupsRequest.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: SubscribeChannelBackupsRequest, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): SubscribeChannelBackupsRequest;
+    static deserializeBinaryFromReader(message: SubscribeChannelBackupsRequest, reader: jspb.BinaryReader): SubscribeChannelBackupsRequest;
+}
+
+export namespace SubscribeChannelBackupsRequest {
+    export type AsObject = {
+    }
+}
+
+export class ChannelBackup extends jspb.Message { 
+    getCurrency(): string;
+    setCurrency(value: string): void;
+
+    getMultiChannelBackup(): string;
+    setMultiChannelBackup(value: string): void;
+
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): ChannelBackup.AsObject;
+    static toObject(includeInstance: boolean, msg: ChannelBackup): ChannelBackup.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: ChannelBackup, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): ChannelBackup;
+    static deserializeBinaryFromReader(message: ChannelBackup, reader: jspb.BinaryReader): ChannelBackup;
+}
+
+export namespace ChannelBackup {
+    export type AsObject = {
+        currency: string,
+        multiChannelBackup: string,
     }
 }
 

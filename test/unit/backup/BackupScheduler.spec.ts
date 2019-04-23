@@ -1,8 +1,10 @@
+import { expect } from 'chai';
 import { Bucket, File } from '@google-cloud/storage';
 import { mock, instance, verify, deepEqual, when, anything, anyString } from 'ts-mockito';
 import Logger from '../../../lib/Logger';
 import Swap from '../../../lib/db/models/Swap';
 import Report from '../../../lib/report/Report';
+import BoltzClient from '../../../lib/boltz/BoltzClient';
 import SwapRepository from '../../../lib/service/SwapRepository';
 import ReverseSwapRepository from '../../../lib/service/ReverseSwapRepository';
 import BackupScheduler, { BackupConfig } from '../../../lib/backup/BackupScheduler';
@@ -10,6 +12,11 @@ import BackupScheduler, { BackupConfig } from '../../../lib/backup/BackupSchedul
 describe('BackupScheduler', () => {
   const dbPath = 'middleware.db';
   const backendDbPath = 'backend.db';
+
+  const channelBackupCurrency = 'BTC';
+  const channelBackupDate = new Date();
+
+  let emitChannelBackup: any;
 
   const swapMock = mock(Swap);
   when(swapMock.fee).thenReturn(780);
@@ -25,10 +32,19 @@ describe('BackupScheduler', () => {
   when(reverseSwapRepositoryMock.getReverseSwaps(anything())).thenResolve([]);
   const reverseSwapRepository = instance(reverseSwapRepositoryMock);
 
-  const fileMock = mock(File);
+  const boltzClientMock = mock(BoltzClient);
+  when(boltzClientMock.on('channel.backup', anything())).thenCall((_, callback) => {
+    emitChannelBackup = callback;
+  });
+  const boltzClient = instance(boltzClientMock);
+
+  const reportFileMock = mock(File);
+  const channelBackupFileMock = mock(File);
 
   const bucketMock = mock(Bucket);
-  when(bucketMock.file('report.csv')).thenReturn(instance(fileMock));
+  when(bucketMock.file('report.csv')).thenReturn(instance(reportFileMock));
+  when(bucketMock.file(`lnd/${channelBackupCurrency}/multiChannelBackup-${BackupScheduler['getDate'](channelBackupDate)}`))
+    .thenReturn(instance(channelBackupFileMock));
   const bucket = instance(bucketMock);
 
   const report = new Report(
@@ -51,14 +67,27 @@ describe('BackupScheduler', () => {
     Logger.disabledLogger,
     dbPath,
     backupConfig,
+    boltzClient,
     report,
   );
 
   backupScheduler['bucket'] = bucket;
 
+  it('should format date correctly', () => {
+    const date = new Date(1556457455724);
+    const dateString = BackupScheduler['getDate'](date);
+
+    const addLeadingZeros = BackupScheduler['addLeadingZeros'];
+
+    expect(dateString).to.be.equal(
+      `${date.getFullYear()}${addLeadingZeros(date.getMonth())}${addLeadingZeros(date.getDate())}` +
+      `-${addLeadingZeros(date.getHours())}${addLeadingZeros(date.getMinutes())}`,
+    );
+  });
+
   it('should upload the databases', async () =>  {
     const date = new Date();
-    const dateString = backupScheduler['getDate'](date);
+    const dateString = BackupScheduler['getDate'](date);
 
     await backupScheduler.uploadDatabases(date);
 
@@ -87,6 +116,17 @@ describe('BackupScheduler', () => {
 
     const csv = await report.generate();
 
-    verify(fileMock.save(csv)).once();
+    verify(reportFileMock.save(csv)).once();
+    verify(reportFileMock.save(anyString())).once();
+  });
+
+  it('should upload LND multi channel backups', async () => {
+    const channelBackup = 'b3be5ae30c223333b693a1f310e92edbae2c354abfd8a87ec2c36862c576cde4';
+
+    backupScheduler['subscribeChannelBackups']();
+    emitChannelBackup(channelBackupCurrency, channelBackup, channelBackupDate);
+
+    verify(channelBackupFileMock.save(channelBackup)).once();
+    verify(channelBackupFileMock.save(anyString())).once();
   });
 });

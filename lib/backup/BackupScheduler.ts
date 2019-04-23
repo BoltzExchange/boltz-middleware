@@ -3,6 +3,7 @@ import { scheduleJob } from 'node-schedule';
 import { Storage, Bucket } from '@google-cloud/storage';
 import Logger from '../Logger';
 import Report from '../report/Report';
+import BoltzClient from '../boltz/BoltzClient';
 
 type BackupConfig = {
   email: string;
@@ -24,6 +25,7 @@ class BackupScheduler {
     private logger: Logger,
     private dbpath: string,
     private config: BackupConfig,
+    private boltz: BoltzClient,
     private report: Report) {
 
     if (
@@ -44,10 +46,26 @@ class BackupScheduler {
 
     this.bucket = storage.bucket(config.bucketname);
 
+    this.subscribeChannelBackups();
+    this.logger.info('Started channel backup subscription');
+
+    this.logger.verbose(`Scheduling database backups: ${this.config.interval}`);
     scheduleJob(this.config.interval, async (date) => {
       await this.uploadDatabases(date);
       await this.uploadReport();
     });
+  }
+
+  private static getDate = (date: Date) => {
+    return `${date.getFullYear()}${BackupScheduler.addLeadingZeros(date.getMonth())}${BackupScheduler.addLeadingZeros(date.getDate())}` +
+      `-${BackupScheduler.addLeadingZeros(date.getHours())}${BackupScheduler.addLeadingZeros(date.getMinutes())}`;
+  }
+
+  /**
+   * Adds a leading 0 to the provided number if it is smalled than 10
+   */
+  private static addLeadingZeros = (number: number) => {
+    return `${number}`.padStart(2, '0');
   }
 
   public uploadDatabases = async (date: Date) => {
@@ -55,8 +73,8 @@ class BackupScheduler {
       throw 'Backups are disabled because of incomplete configuration';
     }
 
-    const dateString = this.getDate(date);
-    this.logger.silly(`Doing database backup at: ${dateString}`);
+    const dateString = BackupScheduler.getDate(date);
+    this.logger.silly(`Backing up databases at: ${dateString}`);
 
     await this.uploadFile(this.dbpath, dateString, true);
 
@@ -70,37 +88,43 @@ class BackupScheduler {
       return;
     }
 
-    const file = this.bucket.file('report.csv');
     const data = await this.report.generate();
-
-    await file.save(data);
-
-    this.logger.debug('Uploaded report');
+    await this.uploadString('report.csv', data);
   }
 
   private uploadFile = async (fileName: string, date: string, isMiddleware: boolean) => {
     try {
+      const destination = `${isMiddleware ? 'middleware' : 'backend'}/database-${date}.db`;
+
       await this.bucket!.upload(fileName, {
-        destination: `${isMiddleware ? 'middleware' : 'backend'}/database-${date}.db`,
+        destination,
       });
 
-      this.logger.debug(`Uploaded file ${fileName}`);
+      this.logger.silly(`Uploaded file ${fileName} to: ${destination}`);
     } catch (error) {
       this.logger.warn(`Could not upload file: ${error}`);
       throw error;
     }
   }
 
-  private getDate = (date: Date) => {
-    return `${date.getFullYear()}${this.addLeadingZeros(date.getMonth())}${this.addLeadingZeros(date.getDay())}` +
-      `-${this.addLeadingZeros(date.getHours())}${this.addLeadingZeros(date.getMinutes())}`;
+  private uploadString = async (fileName: string, data: string) => {
+    try {
+      const file = this.bucket!.file(fileName);
+      await file.save(data);
+
+      this.logger.silly(`Uploaded data into file: ${fileName}`);
+    } catch (error) {
+      this.logger.warn(`Could not upload data to file: ${error}`);
+      throw error;
+    }
   }
 
-  /**
-   * Adds a leading 0 to the provided number if it is smalled than 10
-   */
-  private addLeadingZeros = (number: number) => {
-    return `${number}`.padStart(2, '0');
+  private subscribeChannelBackups = () => {
+    this.boltz.on('channel.backup', async (currency: string, channelBackup: string, date?: Date) => {
+      const dateString = BackupScheduler.getDate(date || new Date());
+
+      await this.uploadString(`lnd/${currency}/multiChannelBackup-${dateString}`, channelBackup);
+    });
   }
 }
 

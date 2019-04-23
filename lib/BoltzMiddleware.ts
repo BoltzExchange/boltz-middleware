@@ -42,6 +42,7 @@ class BoltzMiddleware {
       this.logger,
       this.config.dbpath,
       this.config.backup,
+      this.boltzClient,
       new Report(
         this.service.swapRepository,
         this.service.reverseSwapRepository,

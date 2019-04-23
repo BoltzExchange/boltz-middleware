@@ -48,6 +48,9 @@ interface BoltzClient {
 
   on(event: 'refund', listener: (lockupTransactionHash: string) => void): this;
   emit(event: 'refund', lockupTransactionHash: string): boolean;
+
+  on(event: 'channel.backup', listener: (currency: string, channelBackup: string) => void): this;
+  emit(event: 'channel.backup', currency: string, channelBackup: string): boolean;
 }
 
 class BoltzClient extends BaseClient {
@@ -57,9 +60,10 @@ class BoltzClient extends BaseClient {
   private boltz!: GrpcClient | BoltzMethodIndex;
   private meta!: grpc.Metadata;
 
-  private transactionSubscription?: ClientReadableStream<boltzrpc.SubscribeTransactionsResponse>;
-  private invoicesSubscription?: ClientReadableStream<boltzrpc.SubscribeInvoicesResponse>;
   private refundsSubscription?: ClientReadableStream<boltzrpc.SubscribeRefundsResponse>;
+  private invoicesSubscription?: ClientReadableStream<boltzrpc.SubscribeInvoicesResponse>;
+  private transactionSubscription?: ClientReadableStream<boltzrpc.SubscribeTransactionsResponse>;
+  private channelBackupSubscription?: ClientReadableStream<boltzrpc.ChannelBackup>;
 
   private isReconnecting = false;
 
@@ -221,7 +225,7 @@ class BoltzClient extends BaseClient {
   /**
    * Subscribes to a stream of confirmed transactions to addresses that were specified with "ListenOnAddress"
    */
-  public subscribeTransactions = () => {
+  private subscribeTransactions = () => {
     if (this.transactionSubscription) {
       this.transactionSubscription.cancel();
     }
@@ -242,7 +246,7 @@ class BoltzClient extends BaseClient {
   /**
    * Subscribes to a stream of settled invoices and those paid by Boltz
    */
-  public subscribeInvoices = () => {
+  private subscribeInvoices = () => {
     if (this.invoicesSubscription) {
       this.invoicesSubscription.cancel();
     }
@@ -282,7 +286,7 @@ class BoltzClient extends BaseClient {
   /**
    * Subscribes to a stream of lockup transactions that Boltz refunds
    */
-  public subscribeRefunds = () => {
+  private subscribeRefunds = () => {
     if (this.refundsSubscription) {
       this.refundsSubscription.cancel();
     }
@@ -297,6 +301,27 @@ class BoltzClient extends BaseClient {
         this.emit('status.updated', ConnectionStatus.Disconnected);
 
         this.logger.error(`Refunds subscription errored: ${stringify(error)}`);
+        await this.startReconnectTimer();
+      });
+  }
+
+  /**
+   * Subscribes to a stream of channel backups
+   */
+  private subscribeChannelBackups = () => {
+    if (this.channelBackupSubscription) {
+      this.channelBackupSubscription.cancel();
+    }
+
+    this.channelBackupSubscription = this.boltz.subscribeChannelBackups(new boltzrpc.SubscribeChannelBackupsRequest, this.meta)
+      .on('data', (response: boltzrpc.ChannelBackup) => {
+        this.logger.debug(`New ${response.getCurrency()} channel backup`);
+        this.emit('channel.backup', response.getCurrency(), response.getMultiChannelBackup());
+      })
+      .on('error', async (error) => {
+        this.emit('status.updated', ConnectionStatus.Disconnected);
+
+        this.logger.error(`Channel backup subscription errored: ${stringify(error)}`);
         await this.startReconnectTimer();
       });
   }
@@ -323,9 +348,10 @@ class BoltzClient extends BaseClient {
 
       this.isReconnecting = false;
 
-      this.subscribeTransactions();
-      this.subscribeInvoices();
       this.subscribeRefunds();
+      this.subscribeInvoices();
+      this.subscribeTransactions();
+      this.subscribeChannelBackups();
     } catch (error) {
       this.logger.error(`Could not connect to Boltz: ${error.message}`);
       this.logger.verbose(`Retrying in ${this.RECONNECT_INTERVAL} ms`);
