@@ -1,6 +1,6 @@
 {
   "name": "boltz-middleware",
-  "version": "0.0.1",
+  "version": "1.0.0-beta",
   "description": "Reference implementation of boltz-backend",
   "main": "dist/BoltzMiddleware.js",
   "bin": "bin/boltzm",
@@ -15,7 +15,9 @@
     "lint": "tslint --project tsconfig.json && tslint --config tslint-alt.json 'bin/*' 'test/**/*.ts'",
     "lint:fix": "tslint --fix --project tsconfig.json && tslint --config tslint-alt.json 'bin/*' 'test/**/*.ts'",
     "test": "npm run test:unit",
-    "test:unit": "mocha test/unit/*.spec.ts test/unit/rates/*.spec.ts test/unit/backup/*.spec.ts test/unit/report/*.spec.ts"
+    "test:unit": "mocha test/unit/*.spec.ts test/unit/rates/*.spec.ts test/unit/backup/*.spec.ts test/unit/report/*.spec.ts",
+    "changelog": "conventional-changelog -p angular -i CHANGELOG.md -s",
+    "prepublishOnly": "npm run compile"
   },
   "cross-os": {
     "postcompile": {
@@ -62,6 +64,7 @@
     "@types/yargs": "^13.0.0",
     "chai": "^4.2.0",
     "concurrently": "^4.1.0",
+    "conventional-changelog": "^3.1.4",
     "grpc-tools": "^1.7.3",
     "grpc_tools_node_protoc_ts": "^2.5.0",
     "mocha": "^6.1.4",
