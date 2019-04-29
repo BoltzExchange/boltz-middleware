@@ -8,6 +8,7 @@ import { OutputType, OrderSide } from '../proto/boltzrpc_pb';
 import BoltzClient, { ConnectionStatus } from '../boltz/BoltzClient';
 import Swap from '../db/models/Swap';
 import ReverseSwap from '../db/models/ReverseSwap';
+import BackupScheduler from '../backup/BackupScheduler';
 import { minutesToMilliseconds, satoshisToCoins, splitPairId, parseBalances, getFeeSymbol } from '../Utils';
 
 type NotificationConfig = {
@@ -36,6 +37,7 @@ class NotificationProvider {
     private logger: Logger,
     private service: Service,
     private boltz: BoltzClient,
+    private backup: BackupScheduler,
     private config: NotificationConfig,
     private currencies: CurrencyConfig[]) {
 
@@ -51,9 +53,10 @@ class NotificationProvider {
 
     new CommandHandler(
       this.logger,
+      this.discord,
       this.service,
       this.boltz,
-      this.discord,
+      this.backup,
     );
   }
 

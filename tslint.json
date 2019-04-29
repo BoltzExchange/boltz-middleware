@@ -55,6 +55,17 @@
     "jsdoc-format": true,
     "no-unnecessary-type-assertion": true,
     "await-promise": [true, "Bluebird"],
-    "no-inferrable-types": true
+    "no-inferrable-types": true,
+    "space-before-function-paren": [true,
+      {
+        "anonymous": "always",
+        "named": "never",
+        "constructor": "never",
+        "asyncArrow": "always",
+        "method": "never"
+      }
+    ],
+    "one-line": [true, "check-catch", "check-finally", "check-open-brace", "check-whitespace"],
+    "no-switch-case-fall-through": true
   }
 }

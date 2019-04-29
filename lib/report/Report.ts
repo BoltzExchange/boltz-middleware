@@ -1,13 +1,14 @@
 import fs from 'fs';
+import { Op } from 'sequelize';
 import { Arguments } from 'yargs';
 import Logger from '../Logger';
+import Swap from '../db/models/Swap';
 import Database from '../db/Database';
+import { SwapUpdateEvent } from '../consts/Enums';
+import ReverseSwap from '../db/models/ReverseSwap';
 import SwapRepository from '../service/SwapRepository';
 import ReverseSwapRepository from '../service/ReverseSwapRepository';
-import Swap from '../db/models/Swap';
-import ReverseSwap from '../db/models/ReverseSwap';
 import { getFeeSymbol, resolveHome, satoshisToCoins } from '../Utils';
-import { getSuccessfulTrades } from '../notifications/CommandHandler';
 
 type Entry = {
   date: Date;
@@ -19,77 +20,114 @@ type Entry = {
   feeCurrency: string;
 };
 
-export const generateReport = async (argv: Arguments<any>) => {
-  // Get the path to the database from the command line arguments or
-  // use the default one if none was specified
-  const dbPath = argv.dbpath || '~/.boltz-middleware/boltz.db';
+class Report {
+  constructor(private swapRepository: SwapRepository, private reverseSwapRepository: ReverseSwapRepository) {}
 
-  const db = new Database(Logger.disabledLogger, resolveHome(dbPath));
-  await db.init();
+  public static cli = async (argv: Arguments<any>) => {
+    // Get the path to the database from the command line arguments or
+    // use a default one if none was specified
+    const dbPath = argv.dbpath || '~/.boltz-middleware/boltz.db';
 
-  const swapRepository = new SwapRepository();
-  const reverseSwapRepository = new ReverseSwapRepository();
+    const db = new Database(Logger.disabledLogger, resolveHome(dbPath));
+    await db.init();
 
-  const { swaps, reverseSwaps } = await getSuccessfulTrades(swapRepository, reverseSwapRepository);
-  const entries = swapsToEntries(swaps, reverseSwaps);
+    const report = new Report(new SwapRepository(), new ReverseSwapRepository());
+    const csv = await report.generate();
 
-  entries.sort((a, b) => {
-    return a.date.getTime() - b.date.getTime();
-  });
-
-  const csv = arrayToCsv(entries);
-
-  if (argv.reportpath) {
-    fs.writeFileSync(resolveHome(argv.reportpath), csv);
-  } else {
-    console.log(csv);
+    if (argv.reportpath) {
+      fs.writeFileSync(resolveHome(argv.reportpath), csv);
+    } else {
+      console.log(csv);
+    }
   }
-};
 
-const swapsToEntries = (swaps: Swap[], reverseSwaps: ReverseSwap[]) => {
-  const entries: Entry[] = [];
+  /**
+   * Gets all successful (reverse) swaps
+   */
+  public static getSuccessfulTrades = async (swapRepository: SwapRepository, reverseSwapRepository: ReverseSwapRepository):
+    Promise<{ swaps: Swap[], reverseSwaps: ReverseSwap[] }> => {
 
-  const pushToEntries = (array: Swap[] | ReverseSwap[], isReverse: boolean) => {
-    array.forEach((swap: Swap | ReverseSwap) => {
-      entries.push({
-        date: new Date(swap.createdAt),
-        pair: swap.pair,
-        type: getSwapType(swap.orderSide, isReverse),
-        orderSide: swap.orderSide === 0 ? 'buy' : 'sell',
+    const [swaps, reverseSwaps] = await Promise.all([
+      swapRepository.getSwaps({
+        status: {
+          [Op.eq]: SwapUpdateEvent.InvoicePaid,
+        },
+      }),
+      reverseSwapRepository.getReverseSwaps({
+        status: {
+          [Op.eq]: SwapUpdateEvent.InvoiceSettled,
+        },
+      }),
+    ]);
 
-        fee: satoshisToCoins(swap.fee).toFixed(8),
-        feeCurrency: getFeeSymbol(swap.pair, swap.orderSide, isReverse),
-      });
+    return {
+      swaps,
+      reverseSwaps,
+    };
+  }
+
+  public generate = async () => {
+    const { swaps, reverseSwaps } = await Report.getSuccessfulTrades(this.swapRepository, this.reverseSwapRepository);
+    const entries = this.swapsToEntries(swaps, reverseSwaps);
+
+    entries.sort((a, b) => {
+      return a.date.getTime() - b.date.getTime();
     });
-  };
 
-  pushToEntries(swaps, false);
-  pushToEntries(reverseSwaps, true);
-
-  return entries;
-};
-
-const getSwapType = (orderSide: number, isReverse: boolean) => {
-  if ((orderSide === 0 && !isReverse) || (orderSide !== 0 && isReverse)) {
-    return 'Lightning/Chain';
-  } else {
-    return 'Chain/Lightning';
-  }
-};
-
-const arrayToCsv = (entries: Entry[]) => {
-  const lines: string[] = [];
-
-  if (entries.length !== 0) {
-    const keys = Object.keys(entries[0]);
-    lines.push(keys.join(','));
+    return this.arrayToCsv(entries);
   }
 
-  entries.forEach((entry) => {
-    const date = entry.date.toLocaleString('en-US', { hour12: false }).replace(',', '');
+  private swapsToEntries = (swaps: Swap[], reverseSwaps: ReverseSwap[]) => {
+    const entries: Entry[] = [];
 
-    lines.push(`${date},${entry.pair},${entry.type},${entry.orderSide},${entry.fee},${entry.feeCurrency}`);
-  });
+    const pushToEntries = (array: Swap[] | ReverseSwap[], isReverse: boolean) => {
+      array.forEach((swap: Swap | ReverseSwap) => {
+        entries.push({
+          date: new Date(swap.createdAt),
+          pair: swap.pair,
+          type: this.getSwapType(swap.orderSide, isReverse),
+          orderSide: swap.orderSide === 0 ? 'buy' : 'sell',
 
-  return lines.join('\n');
-};
+          fee: satoshisToCoins(swap.fee).toFixed(8),
+          feeCurrency: getFeeSymbol(swap.pair, swap.orderSide, isReverse),
+        });
+      });
+    };
+
+    pushToEntries(swaps, false);
+    pushToEntries(reverseSwaps, true);
+
+    return entries;
+  }
+
+  private arrayToCsv = (entries: Entry[]) => {
+    const lines: string[] = [];
+
+    if (entries.length !== 0) {
+      const keys = Object.keys(entries[0]);
+      lines.push(keys.join(','));
+    }
+
+    entries.forEach((entry) => {
+      const date = this.formatDate(entry.date);
+
+      lines.push(`${date},${entry.pair},${entry.type},${entry.orderSide},${entry.fee},${entry.feeCurrency}`);
+    });
+
+    return lines.join('\n');
+  }
+
+  private formatDate = (date: Date) => {
+    return date.toLocaleString('en-US', { hour12: false }).replace(',', '');
+  }
+
+  private getSwapType = (orderSide: number, isReverse: boolean) => {
+    if ((orderSide === 0 && !isReverse) || (orderSide !== 0 && isReverse)) {
+      return 'Lightning/Chain';
+    } else {
+      return 'Chain/Lightning';
+    }
+  }
+}
+
+export default Report;
