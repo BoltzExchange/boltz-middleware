@@ -250,6 +250,8 @@ class Service extends EventEmitter {
     const { baseFee, percentageFee } = await this.feeProvider.getFees(pairId, rate, side, invoiceAmount, false);
     const expectedAmount = Math.ceil(invoiceAmount * rate) + baseFee + percentageFee;
 
+    const acceptZeroConf = this.rateProvider.acceptZeroConf(chainCurrency, expectedAmount);
+
     const {
       address,
       redeemScript,
@@ -263,6 +265,7 @@ class Service extends EventEmitter {
       refundPublicKey,
       OutputType.COMPATIBILITY,
       timeoutBlockDelta,
+      acceptZeroConf,
     );
 
     await this.boltz.listenOnAddress(chainCurrency, address);
@@ -272,6 +275,7 @@ class Service extends EventEmitter {
     await this.swapRepository.addSwap({
       id,
       invoice,
+      acceptZeroConf,
       pair: pairId,
       orderSide: side,
       fee: percentageFee,
@@ -283,6 +287,7 @@ class Service extends EventEmitter {
       address,
       redeemScript,
       expectedAmount,
+      acceptZeroConf,
       timeoutBlockHeight,
       bip21: encodeBip21(
         chainCurrency,
@@ -429,7 +434,7 @@ class Service extends EventEmitter {
   }
 
   private listenTransactions = () => {
-    this.boltz.on('transaction.confirmed', async (outputAddress: string, transactionId: string, amountReceived: number) => {
+    this.boltz.on('transaction', async (outputAddress: string, transactionId: string, amountReceived: number, confirmed: boolean) => {
       const swap = await this.swapRepository.getSwap({
         lockupAddress: {
           [Op.eq]: outputAddress,
@@ -437,9 +442,14 @@ class Service extends EventEmitter {
       });
 
       if (swap) {
-        if (!swap.status) {
-          await this.swapRepository.setLockupTransactionId(swap, transactionId, amountReceived);
-          this.emit('swap.update', swap.id, { event: SwapUpdateEvent.TransactionConfirmed });
+        if (!swap.status || swap.status === SwapUpdateEvent.TransactionMempool) {
+          await this.swapRepository.setLockupTransactionId(swap, transactionId, amountReceived, confirmed);
+
+          if (confirmed || swap.acceptZeroConf) {
+            this.emit('swap.update', swap.id, {
+              event: confirmed ? SwapUpdateEvent.TransactionConfirmed : SwapUpdateEvent.TransactionMempool,
+            });
+          }
         }
       }
 
@@ -450,10 +460,10 @@ class Service extends EventEmitter {
       });
 
       if (reverseSwap) {
-        if (!reverseSwap.status) {
+        if (!reverseSwap.status || reverseSwap.status === SwapUpdateEvent.TransactionMempool) {
           await this.updateSwapStatus<ReverseSwap>(
             reverseSwap,
-            SwapUpdateEvent.TransactionConfirmed,
+            confirmed ? SwapUpdateEvent.TransactionConfirmed : SwapUpdateEvent.TransactionMempool,
             this.reverseSwapRepository.setReverseSwapStatus,
           );
         }

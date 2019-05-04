@@ -23,6 +23,8 @@ export type CurrencyConfig = {
 
   minLocalBalance: number;
   minRemoteBalance: number;
+
+  maxZeroConfAmount: number;
 };
 
 export type PairConfig = {

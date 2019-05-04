@@ -95,6 +95,8 @@ class Config {
 
         minLocalBalance: 500000,
         minRemoteBalance: 500000,
+
+        maxZeroConfAmount: 200000,
       },
       {
         symbol: 'LTC',
@@ -108,6 +110,8 @@ class Config {
 
         minLocalBalance: 50000000,
         minRemoteBalance: 50000000,
+
+        maxZeroConfAmount: 20000000,
       },
     ];
 

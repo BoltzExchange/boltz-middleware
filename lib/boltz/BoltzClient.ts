@@ -34,8 +34,8 @@ interface BoltzClient {
   on(event: 'status.updated', listener: (status: ConnectionStatus) => void): this;
   emit(event: 'status.updated', status: ConnectionStatus): boolean;
 
-  on(event: 'transaction.confirmed', listener: (outputAddress: string, transactionHash: string, amountReceived: number) => void): this;
-  emit(event: 'transaction.confirmed', outputAddress: string, transactionHash: string, amountReceived: number): boolean;
+  on(event: 'transaction', listener: (outputAddress: string, transactionHash: string, amountReceived: number, confirmed: boolean) => void): this;
+  emit(event: 'transaction', outputAddress: string, transactionHash: string, amountReceived: number, confirmed: boolean): boolean;
 
   on(even: 'invoice.paid', listener: (invoice: string, routingFee: number) => void): this;
   emit(event: 'invoice.paid', invoice: string, routingFee: number): boolean;
@@ -196,6 +196,7 @@ class BoltzClient extends BaseClient {
     refundPublicKey: string,
     outputType: boltzrpc.OutputType,
     timeoutBlockDelta: number,
+    acceptZeroConf: boolean,
   ) => {
     const request = new boltzrpc.CreateSwapRequest();
 
@@ -205,6 +206,7 @@ class BoltzClient extends BaseClient {
     request.setBaseCurrency(baseCurrency);
     request.setQuoteCurrency(quoteCurrency);
     request.setExpectedAmount(expectedAmount);
+    request.setAcceptZeroConf(acceptZeroConf);
     request.setRefundPublicKey(refundPublicKey);
     request.setTimeoutBlockDelta(timeoutBlockDelta);
 
@@ -246,11 +248,10 @@ class BoltzClient extends BaseClient {
 
     this.transactionSubscription = this.boltz.subscribeTransactions(new boltzrpc.SubscribeTransactionsRequest(), this.meta)
       .on('data', (response: boltzrpc.SubscribeTransactionsResponse) => {
-        this.logger.debug(
-          `Found transaction to address ${response.getOutputAddress()} with value ${response.getAmountReceived()} confirmed: ` +
-          `${response.getTransactionHash()}`,
-        );
-        this.emit('transaction.confirmed', response.getTransactionHash(), response.getOutputAddress(), response.getAmountReceived());
+        this.logger.debug(`Found transaction to address ${response.getOutputAddress()} ${response.getConfirmed() ? 'confirmed' : 'in mempool'}:` +
+          ` ${response.getTransactionHash()}`);
+
+        this.emit('transaction', response.getOutputAddress(), response.getTransactionHash(), response.getAmountReceived(), response.getConfirmed());
       })
       .on('error', async (error) => {
         this.emit('status.updated', ConnectionStatus.Disconnected);

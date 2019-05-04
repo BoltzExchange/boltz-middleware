@@ -17,18 +17,19 @@ class SwapRepository {
   }
 
   public addSwap = async (swap: {
-    id: string,
-    fee: number,
-    pair: string,
-    invoice: string,
-    orderSide: number,
-    lockupAddress: string,
+    id: string;
+    fee: number;
+    pair: string;
+    invoice: string;
+    orderSide: number;
+    lockupAddress: string;
+    acceptZeroConf: boolean;
 
-    status?: string,
+    status?: string;
     minerFee?: number;
-    routingFee?: number,
-    onchainAmount?: number,
-    lockupTransactionId?: string,
+    routingFee?: number;
+    onchainAmount?: number;
+    lockupTransactionId?: string;
   }) => {
     return Swap.create(swap);
   }
@@ -39,11 +40,11 @@ class SwapRepository {
     });
   }
 
-  public setLockupTransactionId = async (swap: Swap, lockupTransactionId: string, onchainAmount: number) => {
+  public setLockupTransactionId = async (swap: Swap, lockupTransactionId: string, onchainAmount: number, confirmed: boolean) => {
     return swap.update({
       onchainAmount,
       lockupTransactionId,
-      status: SwapUpdateEvent.TransactionConfirmed,
+      status: confirmed ? SwapUpdateEvent.TransactionConfirmed : SwapUpdateEvent.TransactionMempool,
     });
   }
 

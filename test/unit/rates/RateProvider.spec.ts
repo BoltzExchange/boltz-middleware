@@ -18,6 +18,8 @@ describe('RateProvider', () => {
 
     minLocalBalance: 0,
     minRemoteBalance: 0,
+
+    maxZeroConfAmount: 10000,
   });
 
   const ltcCurrencyConfig = currencyConfig('LTC');
@@ -133,6 +135,16 @@ describe('RateProvider', () => {
 
     expect(pairs.get('BTC/BTC')!.fees.minerFees).to.be.deep.equal({ baseAsset: minerFees.BTC, quoteAsset: minerFees.BTC });
     expect(pairs.get('LTC/BTC')!.fees.minerFees).to.be.deep.equal({ baseAsset: minerFees.LTC, quoteAsset: minerFees.BTC });
+  });
+
+  it('should accept 0-conf for amounts lower than threshold', () => {
+    // Should return false for undefined maximal allowed amounts
+    expect(rateProvider.acceptZeroConf('ETH', 0)).to.be.equal(false);
+
+    expect(rateProvider.acceptZeroConf('BTC', btcCurrencyConfig.maxZeroConfAmount + 1)).to.be.equal(false);
+
+    expect(rateProvider.acceptZeroConf('BTC', btcCurrencyConfig.maxZeroConfAmount)).to.be.equal(true);
+    expect(rateProvider.acceptZeroConf('BTC', btcCurrencyConfig.maxZeroConfAmount - 1)).to.be.equal(true);
   });
 
   after(async () => {

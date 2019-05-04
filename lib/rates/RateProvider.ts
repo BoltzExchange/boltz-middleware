@@ -1,8 +1,8 @@
 import Logger from '../Logger';
+import Pair from '../db/models/Pair';
 import FeeProvider from './FeeProvider';
 import DataProvider from './data/DataProvider';
 import { CurrencyConfig } from '../consts/Types';
-import Pair from '../db/models/Pair';
 import { stringify, mapToObject, minutesToMilliseconds, getPairId } from '../Utils';
 
 type Limits = {
@@ -38,6 +38,9 @@ class RateProvider {
 
   // An array of tuples between the base and quote asset of all pairs for which the rate should be queried
   public pairsToQuery: [string, string][] = [];
+
+  // A map between the symbol and max allowed zero conf amount
+  private maxZeroConfAmounts = new Map<string, number>();
 
   // A map of all pairs with hardcoded rates
   private hardcodedPairs = new Map<string, { base: string, quote: string }>();
@@ -109,6 +112,19 @@ class RateProvider {
 
   public disconnect = () => {
     clearInterval(this.timer);
+  }
+
+  /**
+   * Returns whether 0-conf should be accepted for a specific amount on a specified chain
+   */
+  public acceptZeroConf = (chainCurrency: string, amount: number) => {
+    const maxAllowedAmount = this.maxZeroConfAmounts.get(chainCurrency);
+
+    if (maxAllowedAmount) {
+      return amount <= maxAllowedAmount;
+    } else {
+      return false;
+    }
   }
 
   private updateRates = async (minerFees: Map<string, MinerFees>) => {
@@ -193,6 +209,8 @@ class RateProvider {
         maximal: currency.maxSwapAmount,
         minimal: currency.minSwapAmount,
       });
+
+      this.maxZeroConfAmounts.set(currency.symbol, currency.maxZeroConfAmount);
     });
   }
 
