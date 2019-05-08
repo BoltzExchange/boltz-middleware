@@ -19,11 +19,12 @@ class ReverseSwapRepository {
     id: string,
     fee: number,
     pair: string,
-    orderSide: number,
     invoice: string,
-    transactionId: string;
-    preimage?: string;
+    orderSide: number,
+    transactionId: string,
+
     status?: string,
+    preimage?: string,
   }) => {
     return ReverseSwap.create(reverseSwap);
   }
@@ -36,6 +37,10 @@ class ReverseSwapRepository {
 
   public updateReverseSwap = async (reverseSwap: ReverseSwap, keys: object) => {
     return reverseSwap.update(keys);
+  }
+
+  public dropTable = async () => {
+    return ReverseSwap.drop();
   }
 }
 

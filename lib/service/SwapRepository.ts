@@ -19,10 +19,11 @@ class SwapRepository {
     id: string,
     fee: number,
     pair: string,
-    orderSide: number,
     invoice: string,
-    status?: string,
+    orderSide: number,
     lockupAddress: string,
+
+    status?: string,
   }) => {
     return Swap.create(swap);
   }
@@ -31,6 +32,10 @@ class SwapRepository {
     return swap.update({
       status,
     });
+  }
+
+  public dropTable = async () => {
+    return Swap.drop();
   }
 }
 
