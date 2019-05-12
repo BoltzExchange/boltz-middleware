@@ -1,5 +1,6 @@
 import { WhereOptions } from 'sequelize';
 import Swap from '../db/models/Swap';
+import { SwapUpdateEvent } from '../consts/Enums';
 
 class SwapRepository {
 
@@ -24,6 +25,10 @@ class SwapRepository {
     lockupAddress: string,
 
     status?: string,
+    minerFee?: number;
+    routingFee?: number,
+    onchainAmount?: number,
+    lockupTransactionId?: string,
   }) => {
     return Swap.create(swap);
   }
@@ -31,6 +36,28 @@ class SwapRepository {
   public setSwapStatus = async (swap: Swap, status: string) => {
     return swap.update({
       status,
+    });
+  }
+
+  public setLockupTransactionId = async (swap: Swap, lockupTransactionId: string, onchainAmount: number) => {
+    return swap.update({
+      onchainAmount,
+      lockupTransactionId,
+      status: SwapUpdateEvent.TransactionConfirmed,
+    });
+  }
+
+  public setInvoicePaid = async (swap: Swap, routingFee: number) => {
+    return swap.update({
+      routingFee,
+      status: SwapUpdateEvent.InvoicePaid,
+    });
+  }
+
+  public setMinerFee = async (swap: Swap, minerFee: number) => {
+    return swap.update({
+      minerFee,
+      status: SwapUpdateEvent.TransactionClaimed,
     });
   }
 

@@ -16,6 +16,8 @@ import CommandHandler from '../../../lib/notifications/CommandHandler';
 import ReverseSwapRepository from '../../../lib/service/ReverseSwapRepository';
 
 describe('CommandHandler', () => {
+  const getRandomNumber = () => Math.floor(Math.random() * 10000);
+
   let sendMessage: (message: string) => {};
 
   const discordMock = mock(DiscordClient);
@@ -38,14 +40,22 @@ describe('CommandHandler', () => {
 
   const btcBalance = {
     walletBalance: {
-      totalBalance: 10000000,
-      confirmedBalance: 2,
-      unconfirmedBalance: 3,
+      totalBalance: getRandomNumber(),
+      confirmedBalance: getRandomNumber(),
+      unconfirmedBalance: getRandomNumber(),
     },
 
     lightningBalance: {
-      localBalance: 20000000,
-      remoteBalance: 30000000,
+      walletBalance: {
+        totalBalance: getRandomNumber(),
+        confirmedBalance: getRandomNumber(),
+        unconfirmedBalance: getRandomNumber(),
+      },
+
+      channelBalance: {
+        localBalance: getRandomNumber(),
+        remoteBalance: getRandomNumber(),
+      },
     },
   };
 
@@ -74,28 +84,6 @@ describe('CommandHandler', () => {
     backupScheduler,
   );
 
-  const swap = {
-    id: '123456',
-
-    fee: 100,
-    pair: 'LTC/BTC',
-    orderSide: 0,
-    status: SwapUpdateEvent.InvoicePaid,
-    invoice: 'lnbcrt',
-    lockupAddress: 'bcrt1q4fgsuxk4q0uhmqm4hlhwz2kv4k374f5ta2dqn2',
-  };
-  const reverseSwap = {
-    id: '654321',
-
-    fee: 200,
-    orderSide: 0,
-    pair: 'LTC/BTC',
-    invoice: 'lnbcrt',
-    status: SwapUpdateEvent.InvoiceSettled,
-    preimage: '19633406642926291B51625F7E5F61126A',
-    transactionId: '6071400d052ffd911f47537aba80500d52f67077a8522ec6915c128228f71a69',
-  };
-
   before(async () => {
     await database.init();
 
@@ -105,8 +93,8 @@ describe('CommandHandler', () => {
     });
 
     await Promise.all([
-      swapRepository.addSwap(swap),
-      reverseSwapRepository.addReverseSwap(reverseSwap),
+      swapRepository.addSwap(swapExample),
+      reverseSwapRepository.addReverseSwap(reverseSwapExample),
     ]);
   });
 
@@ -133,28 +121,40 @@ describe('CommandHandler', () => {
 
     // Calculating the fees takes a little longer than the other commands
     await wait(50);
-    verify(discordMock.sendMessage(`Fees:\n\n**BTC**: ${satoshisToCoins(swap.fee)} BTC\n**LTC**: ${satoshisToCoins(reverseSwap.fee)} LTC`)).once();
+    verify(discordMock.sendMessage(
+      `Fees:\n\n**LTC**: ${satoshisToCoins(swapExample.fee + reverseSwapExample.fee)} LTC`,
+    )).once();
   });
 
   it('should get balances', async () => {
     sendMessage('getbalance');
     await wait(5);
 
-    // tslint:disable-next-line: prefer-template
-    verify(discordMock.sendMessage(`Balances:\n\n**BTC**\nWallet: ${satoshisToCoins(btcBalance.walletBalance.totalBalance)} BTC\n\n` +
-      `Channels:\n  Local: ${satoshisToCoins(btcBalance.lightningBalance.localBalance)} BTC\n` +
-      `  Remote: ${satoshisToCoins(btcBalance.lightningBalance.remoteBalance)} BTC`)).once();
+    const { walletBalance, lightningBalance } = btcBalance;
+
+    verify(discordMock.sendMessage(
+      // tslint:disable-next-line: prefer-template
+      'Balances:\n\n' +
+      `**BTC**\nWallet: ${satoshisToCoins(walletBalance.totalBalance)} BTC\n\n` +
+      'LND:\n' +
+      `  Wallet: ${satoshisToCoins(lightningBalance.walletBalance.totalBalance)} BTC\n\n` +
+      '  Channels:\n' +
+      `    Local: ${satoshisToCoins(lightningBalance.channelBalance.localBalance)} BTC\n` +
+      `    Remote: ${satoshisToCoins(lightningBalance.channelBalance.remoteBalance)} BTC`,
+    )).once();
   });
 
   it('should get information about (reverse) swaps', async () => {
-    sendMessage(`swapinfo ${swap.id}`);
+    sendMessage(`swapinfo ${swapExample.id}`);
     await wait(10);
-    verify(discordMock.sendMessage(`Swap ${swap.id}: ${stringify(await swapRepository.getSwap({ id: swap.id }))}`)).once();
+    verify(discordMock.sendMessage(`Swap ${swapExample.id}:\n\`\`\`${stringify(await swapRepository.getSwap({ id: swapExample.id }))}\`\`\``)).once();
 
-    sendMessage(`swapinfo ${reverseSwap.id}`);
+    sendMessage(`swapinfo ${reverseSwapExample.id}`);
     await wait(10);
-    verify(discordMock.sendMessage(`Reverse swap ${reverseSwap.id}: `
-      + `${stringify(await reverseSwapRepository.getReverseSwap({ id: reverseSwap.id }))}`)).once();
+
+    // tslint:disable-next-line: prefer-template
+    verify(discordMock.sendMessage(`Reverse swap ${reverseSwapExample.id}:\n\`\`\``
+      + `${stringify(await reverseSwapRepository.getReverseSwap({ id: reverseSwapExample.id }))}\`\`\``)).once();
 
     const errorMessage = 'Could not find swap with id: ';
 
@@ -230,3 +230,34 @@ describe('CommandHandler', () => {
     await database.close();
   });
 });
+
+export const swapExample = {
+  id: '123456',
+
+  fee: 100,
+  orderSide: 0,
+  minerFee: 306,
+  routingFee: 1,
+  pair: 'LTC/BTC',
+  onchainAmount: 1000000,
+  status: SwapUpdateEvent.TransactionClaimed,
+  lockupAddress: 'bcrt1q4fgsuxk4q0uhmqm4hlhwz2kv4k374f5ta2dqn2',
+  lockupTransactionId: '6071400d052ffd911f47537aba80500d52f67077a8522ec6915c128228f71a69',
+  // tslint:disable-next-line: max-line-length
+  invoice: 'lnbcrt10u1pwd0ll7pp5ulhj6g7cxhsnv7daksah2tcegr7crqrkym5lxl96kxn450wj9p5sdqqcqzpghwrktsemktcs8u367pls8t5htnhvh8l5x00zpu2sjq0lmag5zzw58mf3hfw02zj3ucuw7n52t2cajk7d88wzfh9ydwgtl9yz7gu00fqqzku5uy',
+};
+
+export const reverseSwapExample = {
+  id: '654321',
+
+  fee: 200,
+  orderSide: 1,
+  minerFee: 306,
+  pair: 'LTC/BTC',
+  onchainAmount: 1000000,
+  status: SwapUpdateEvent.InvoiceSettled,
+  preimage: '19633406642926291B51625F7E5F61126A',
+  transactionId: '6071400d052ffd911f47537aba80500d52f67077a8522ec6915c128228f71a69',
+  // tslint:disable-next-line: max-line-length
+  invoice: 'lnbcrt20u1pwdsqqppp5dhevzcnd2xrdwuyzv2s342mcwzuukjqlrkwyvyyda66hukkhrhwsdqqcqzpg9y9m249r5m6djquw5jd8klfsehgfpsn3f88hzktcmv6k6p65h2hra9hqj5xrhh27dxktr0wtmn7f8wk4zg2gprnl5zgsas45v7jq5hcqdr8n5a',
+};

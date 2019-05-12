@@ -1,5 +1,4 @@
 import { Op } from 'sequelize';
-import bolt11 from '@boltz/bolt11';
 import { EventEmitter } from 'events';
 import Errors from './Errors';
 import Logger from '../Logger';
@@ -16,7 +15,7 @@ import ReverseSwapRepository from './ReverseSwapRepository';
 import { SwapUpdateEvent, ServiceWarning } from '../consts/Enums';
 import { SwapUpdate, CurrencyConfig, PairConfig } from '../consts/Types';
 import { OrderSide, OutputType, CurrencyInfo } from '../proto/boltzrpc_pb';
-import { splitPairId, stringify, generateId, mapToObject, feeMapToObject } from '../Utils';
+import { splitPairId, stringify, generateId, mapToObject, feeMapToObject, getAmountOfInvoice } from '../Utils';
 
 type PairType = {
   id: string;
@@ -30,6 +29,9 @@ interface Service {
 
   on(event: 'swap.successful', listener: (swap: Swap | ReverseSwap) => void): this;
   emit(event: 'swap.successful', swap: Swap | ReverseSwap): boolean;
+
+  on(event: 'swap.failed', listener: (swap: Swap | ReverseSwap, reason: string) => void): this;
+  emit(event: 'swap.failed', swap: Swap | ReverseSwap, reason: string): boolean;
 }
 
 class Service extends EventEmitter {
@@ -156,9 +158,10 @@ class Service extends EventEmitter {
 
     this.logger.verbose(`Initialised ${this.pairs.size} pairs: ${stringify(Array.from(this.pairs.keys()))}`);
 
-    this.listenTransactions();
-    this.listenInvoices();
+    this.listenClaims();
     this.listenRefunds();
+    this.listenInvoices();
+    this.listenTransactions();
   }
 
   /**
@@ -222,18 +225,17 @@ class Service extends EventEmitter {
     const chainCurrency = side === OrderSide.BUY ? quote : base;
     const lightningCurrency = side === OrderSide.BUY ? base : quote;
 
-    const { millisatoshis } = bolt11.decode(invoice);
-    const satoshi = Number(millisatoshis) / 1000;
+    const satoshi = getAmountOfInvoice(invoice);
 
     this.verifyAmount(satoshi, pairId, side, false, rate);
-    const fee = await this.feeProvider.getFee(pairId, chainCurrency, satoshi, false);
+    const { baseFee, percentageFee } = await this.feeProvider.getFee(pairId, chainCurrency, satoshi, false);
 
     const {
       address,
       redeemScript,
       expectedAmount,
       timeoutBlockHeight,
-    } = await this.boltz.createSwap(base, quote, side, rate, fee, invoice, refundPublicKey, OutputType.COMPATIBILITY);
+    } = await this.boltz.createSwap(base, quote, side, rate, baseFee + percentageFee, invoice, refundPublicKey, OutputType.COMPATIBILITY);
     await this.boltz.listenOnAddress(chainCurrency, address);
 
     const id = generateId(6);
@@ -241,10 +243,10 @@ class Service extends EventEmitter {
     try {
       await this.swapRepository.addSwap({
         id,
-        fee,
         invoice,
         pair: pairId,
         orderSide: side,
+        fee: percentageFee,
         lockupAddress: address,
       });
     } catch (error) {
@@ -280,15 +282,17 @@ class Service extends EventEmitter {
     const chainCurrency = side === OrderSide.BUY ? base : quote;
 
     this.verifyAmount(amount, pairId, side, true, rate);
-    const fee = await this.feeProvider.getFee(pairId, chainCurrency, amount, true);
+    const { baseFee, percentageFee } = await this.feeProvider.getFee(pairId, chainCurrency, amount, true);
 
     const {
       invoice,
+      minerFee,
+      amountSent,
       redeemScript,
       lockupAddress,
       lockupTransaction,
       lockupTransactionHash,
-    } = await this.boltz.createReverseSwap(base, quote, side, rate, fee, claimPublicKey, amount);
+    } = await this.boltz.createReverseSwap(base, quote, side, rate, baseFee + percentageFee, claimPublicKey, amount);
 
     await this.boltz.listenOnAddress(chainCurrency, lockupAddress);
 
@@ -296,10 +300,12 @@ class Service extends EventEmitter {
 
     await this.reverseSwapRepository.addReverseSwap({
       id,
-      fee,
       invoice,
+      minerFee,
       pair: pairId,
       orderSide: side,
+      fee: percentageFee,
+      onchainAmount: amountSent,
       transactionId: lockupTransactionHash,
     });
 
@@ -368,7 +374,7 @@ class Service extends EventEmitter {
   }
 
   private listenTransactions = () => {
-    this.boltz.on('transaction.confirmed', async (transactionId: string, outputAddress: string) => {
+    this.boltz.on('transaction.confirmed', async (outputAddress: string, transactionId: string, amountReceived: number) => {
       const swap = await this.swapRepository.getSwap({
         lockupAddress: {
           [Op.eq]: outputAddress,
@@ -377,7 +383,8 @@ class Service extends EventEmitter {
 
       if (swap) {
         if (!swap.status) {
-          await this.updateSwapStatus<Swap>(swap, SwapUpdateEvent.TransactionConfirmed, this.swapRepository.setSwapStatus);
+          await this.swapRepository.setLockupTransactionId(swap, transactionId, amountReceived);
+          this.emit('swap.update', swap.id, { event: SwapUpdateEvent.TransactionConfirmed });
         }
       }
 
@@ -400,18 +407,16 @@ class Service extends EventEmitter {
   }
 
   private listenInvoices = () => {
-    this.boltz.on('invoice.paid', async (invoice: string) => {
-      const swap = await this.swapRepository.getSwap({
+    this.boltz.on('invoice.paid', async (invoice: string, routingFee: number) => {
+      let swap = await this.swapRepository.getSwap({
         invoice: {
           [Op.eq]: invoice,
         },
       });
 
-      await this.updateSwapStatus<Swap>(swap, SwapUpdateEvent.InvoicePaid, this.swapRepository.setSwapStatus);
-
       if (swap) {
-        swap.status = SwapUpdateEvent.InvoicePaid;
-        this.emit('swap.successful', swap);
+        swap = await this.swapRepository.setInvoicePaid(swap, routingFee);
+        this.emit('swap.update', swap.id, { event: SwapUpdateEvent.InvoicePaid });
       }
     });
 
@@ -422,27 +427,27 @@ class Service extends EventEmitter {
         },
       });
 
-      await this.updateSwapStatus<Swap>(swap, SwapUpdateEvent.InvoiceFailedToPay, this.swapRepository.setSwapStatus);
+      if (swap) {
+        const error = Errors.INVOICE_COULD_NOT_BE_PAID();
+
+        await this.updateSwapStatus<Swap>(swap, SwapUpdateEvent.InvoiceFailedToPay, this.swapRepository.setSwapStatus);
+
+        this.logger.info(`Swap ${swap.id} failed: ${error.message}`);
+        this.emit('swap.failed', swap, error.message);
+      }
     });
 
     this.boltz.on('invoice.settled', async (invoice: string, preimage: string) => {
-      const reverseSwap = await this.reverseSwapRepository.getReverseSwap({
+      let reverseSwap = await this.reverseSwapRepository.getReverseSwap({
         invoice: {
           [Op.eq]: invoice,
         },
       });
 
       if (reverseSwap) {
-        await this.reverseSwapRepository.updateReverseSwap(
-          reverseSwap,
-          {
-            preimage,
-            status: SwapUpdateEvent.InvoiceSettled,
-          },
-        );
+        reverseSwap = await this.reverseSwapRepository.setInvoiceSettled(reverseSwap, preimage);
 
-        reverseSwap.preimage = preimage;
-        reverseSwap.status = SwapUpdateEvent.InvoiceSettled;
+        this.logger.verbose(`Reverse swap ${reverseSwap.id} succeeded`);
 
         this.emit('swap.update', reverseSwap.id, { preimage, event: SwapUpdateEvent.InvoiceSettled });
         this.emit('swap.successful', reverseSwap);
@@ -450,19 +455,40 @@ class Service extends EventEmitter {
     });
   }
 
-  private listenRefunds = () => {
-    this.boltz.on('refund', async (transactionId: string) => {
-      const reverseSwap = await this.reverseSwapRepository.getReverseSwap({
-        transactionId: {
-          [Op.eq]: transactionId,
+  private listenClaims = () => {
+    this.boltz.on('claim', async (lockupTransactionId: string, minerFee: number) => {
+      const swap = await this.swapRepository.getSwap({
+        lockupTransactionId: {
+          [Op.eq]: lockupTransactionId,
         },
       });
 
-      await this.updateSwapStatus<ReverseSwap>(
-        reverseSwap,
-        SwapUpdateEvent.TransactionRefunded,
-        this.reverseSwapRepository.setReverseSwapStatus,
-      );
+      if (swap) {
+        await this.swapRepository.setMinerFee(swap, minerFee);
+        this.logger.verbose(`Swap ${swap.id} succeeded`);
+        this.emit('swap.successful', swap);
+      }
+    });
+  }
+
+  private listenRefunds = () => {
+    this.boltz.on('refund', async (lockupTransactionId: string, minerFee: number) => {
+      let reverseSwap = await this.reverseSwapRepository.getReverseSwap({
+        transactionId: {
+          [Op.eq]: lockupTransactionId,
+        },
+      });
+
+      if (reverseSwap) {
+        reverseSwap = await this.reverseSwapRepository.setTransactionRefunded(reverseSwap, minerFee);
+
+        const error = Errors.ONCHAIN_HTLC_TIMED_OUT();
+
+        this.logger.info(`Reverse swap failed: ${error.message}`);
+
+        this.emit('swap.update', reverseSwap.id, { event: SwapUpdateEvent.TransactionRefunded });
+        this.emit('swap.failed', reverseSwap, error.message);
+      }
     });
   }
 

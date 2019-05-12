@@ -93,12 +93,15 @@ class CommandHandler {
         `Wallet: ${satoshisToCoins(balance.walletBalance!.totalBalance)} ${symbol}`;
 
       if (balance.lightningBalance) {
-        const { localBalance, remoteBalance } = balance.lightningBalance;
+        const { walletBalance, channelBalance } = balance.lightningBalance;
+        const { localBalance, remoteBalance } = channelBalance!;
 
         // tslint:disable-next-line:prefer-template
-        message += '\n\nChannels:\n' +
-          `  Local: ${satoshisToCoins(localBalance)} ${symbol}\n` +
-          `  Remote: ${satoshisToCoins(remoteBalance)} ${symbol}`;
+        message += '\n\nLND:\n' +
+          `  Wallet: ${satoshisToCoins(walletBalance!.totalBalance)} ${symbol}\n\n` +
+          '  Channels:\n' +
+          `    Local: ${satoshisToCoins(localBalance)} ${symbol}\n` +
+          `    Remote: ${satoshisToCoins(remoteBalance)} ${symbol}`;
       }
     });
 
@@ -108,7 +111,7 @@ class CommandHandler {
   private getFees = async () => {
     let message = 'Fees:\n';
 
-    const { swaps, reverseSwaps } = await Report.getSuccessfulTrades(this.service.swapRepository, this.service.reverseSwapRepository);
+    const { swaps, reverseSwaps } = await Report.getSuccessfulSwaps(this.service.swapRepository, this.service.reverseSwapRepository);
     const fees = this.getFeeFromSwaps(swaps, reverseSwaps);
 
     fees.forEach((fee, symbol) => {
@@ -133,7 +136,7 @@ class CommandHandler {
     });
 
     if (swap) {
-      await this.discord.sendMessage(`Swap ${id}: ${stringify(swap)}`);
+      await this.sendSwapInfo(swap, false);
       return;
     } else {
       // Query for a reverse swap because there was no normal one found with the specified id
@@ -144,7 +147,7 @@ class CommandHandler {
       });
 
       if (reverseSwap) {
-        await this.discord.sendMessage(`Reverse swap ${id}: ${stringify(reverseSwap)}`);
+        await this.sendSwapInfo(reverseSwap, true);
         return;
       }
     }
@@ -224,6 +227,10 @@ class CommandHandler {
     getFeeFromSwapMap(reverseSwaps, true);
 
     return fees;
+  }
+
+  private sendSwapInfo = async (swap: Swap | ReverseSwap, isReverse: boolean) => {
+    await this.discord.sendMessage(`${isReverse ? 'Reverse swap' : 'Swap'} ${swap.id}:\n\`\`\`${stringify(swap)}\`\`\``);
   }
 
   private sendCouldNotFindSwap = async (id: string) => {
