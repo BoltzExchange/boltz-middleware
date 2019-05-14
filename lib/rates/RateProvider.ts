@@ -215,10 +215,7 @@ class RateProvider {
 
     for (const [symbol] of this.limits) {
       // The pair and amount can be emtpy because we just want the miner fee
-      const [normal, reverseLockup] = await Promise.all([
-        this.feeProvider.getFee('', symbol, 0, false),
-        this.feeProvider.getFee('', symbol, 0, true),
-      ]);
+      const { normal, reverseLockup } = await this.getFeeFromProvider(symbol);
 
       minerFees.set(symbol, {
         normal,
@@ -235,6 +232,18 @@ class RateProvider {
     }
 
     return minerFees;
+  }
+
+  private getFeeFromProvider = async (chainCurrency: string) => {
+    const [normal, reverseLockup] = await Promise.all([
+      this.feeProvider.getFee('', chainCurrency, 0, false),
+      this.feeProvider.getFee('', chainCurrency, 0, true),
+    ]);
+
+    return {
+      normal: normal.baseFee,
+      reverseLockup: reverseLockup.baseFee,
+    };
   }
 }
 

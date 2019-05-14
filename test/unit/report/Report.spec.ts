@@ -31,6 +31,7 @@ describe('Report', () => {
       when(mock.fee).thenReturn(1000);
       when(mock.pair).thenReturn('LTC/BTC');
       when(mock.createdAt).thenReturn(date);
+      when(mock.minerFee).thenReturn(10000);
       when(mock.orderSide).thenReturn(isSecond ? 1 : 0);
     };
 
@@ -40,6 +41,8 @@ describe('Report', () => {
 
       setMockValues(swapMock, i === 1);
       setMockValues(reverseSwapMock, i === 1);
+
+      when(swapMock.routingFee).thenReturn(1);
 
       swaps.push(instance(swapMock));
       reverseSwaps.push(instance(reverseSwapMock));
@@ -52,12 +55,16 @@ describe('Report', () => {
 
     expect(csv).to.be.equal(
       // tslint:disable-next-line: prefer-template
-      'date,pair,type,orderSide,fee,feeCurrency\n' +
+      'date,pair,type,orderSide,failed,minerFee,routingFee,fee,feeCurrency\n' +
 
-      `${formatDate},LTC/BTC,Lightning/Chain,buy,0.00001000,BTC\n` +
-      `${formatDate},LTC/BTC,Chain/Lightning,sell,0.00001000,LTC\n` +
-      `${formatDate},LTC/BTC,Chain/Lightning,buy,0.00001000,LTC\n` +
-      `${formatDate},LTC/BTC,Lightning/Chain,sell,0.00001000,BTC`,
+      `${formatDate},LTC/BTC,Lightning/Chain,buy,false,0.00010000,0.001,0.00001000,LTC\n` +
+      `${formatDate},LTC/BTC,Chain/Lightning,sell,false,0.00010000,0.001,0.00001000,BTC\n` +
+      `${formatDate},LTC/BTC,Chain/Lightning,buy,false,0.00010000,0.000,0.00001000,BTC\n` +
+      `${formatDate},LTC/BTC,Lightning/Chain,sell,false,0.00010000,0.000,0.00001000,LTC\n` +
+      `${formatDate},LTC/BTC,Lightning/Chain,buy,true,0.00010000,0.001,0.00001000,LTC\n` +
+      `${formatDate},LTC/BTC,Chain/Lightning,sell,true,0.00010000,0.001,0.00001000,BTC\n` +
+      `${formatDate},LTC/BTC,Chain/Lightning,buy,true,0.00010000,0.000,0.00001000,BTC\n` +
+      `${formatDate},LTC/BTC,Lightning/Chain,sell,true,0.00010000,0.000,0.00001000,LTC`,
     );
   });
 });

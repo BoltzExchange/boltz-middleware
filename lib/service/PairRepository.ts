@@ -31,6 +31,10 @@ class PairRepository {
       },
     });
   }
+
+  public dropTable = async () => {
+    return Pair.drop();
+  }
 }
 
 export default PairRepository;

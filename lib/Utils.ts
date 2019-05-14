@@ -1,7 +1,8 @@
 import os from 'os';
 import path from 'path';
-import { GetBalanceResponse, Balance, OrderSide } from './proto/boltzrpc_pb';
+import bolt11 from '@boltz/bolt11';
 import { PairConfig } from './consts/Types';
+import { GetBalanceResponse, Balance, OrderSide } from './proto/boltzrpc_pb';
 
 const idPossibilities = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
 
@@ -33,7 +34,6 @@ export const getPairId = (pair: {base: string, quote: string } | PairConfig): st
 export const splitPairId = (pairId: string): {
   base: string,
   quote: string,
-  rate?: number,
 } => {
   const split = pairId.split('/');
 
@@ -188,12 +188,13 @@ export const parseBalances = async (balance: GetBalanceResponse.AsObject) => {
  * Gets the symbol for the fee of a swap
  */
 export const getFeeSymbol = (pairId: string, orderSide: OrderSide, isReverse: boolean): string => {
+  const isBuy = orderSide === OrderSide.BUY;
   const { base, quote } = splitPairId(pairId);
 
   if (isReverse) {
-    return orderSide === OrderSide.BUY ? base : quote;
+    return isBuy ? quote : base;
   } else {
-    return orderSide === OrderSide.BUY ? quote : base;
+    return isBuy ? base : quote;
   }
 };
 
@@ -208,4 +209,15 @@ export const feeMapToObject = (feesMap: [string, number][]) => {
   });
 
   return response;
+};
+
+export const getSmallestDenomination = (symbol: string): string => {
+  switch (symbol) {
+    case 'LTC': return 'litoshi';
+    default: return 'satoshi';
+  }
+};
+
+export const getAmountOfInvoice = (invoice: string): number => {
+  return Number(bolt11.decode(invoice).millisatoshis) / 1000;
 };

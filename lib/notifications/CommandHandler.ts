@@ -1,12 +1,12 @@
 import { Op } from 'sequelize';
 import Logger from '../Logger';
+import Swap from '../db/models/Swap';
+import Report from '../report/Report';
 import Service from '../service/Service';
 import DiscordClient from './DiscordClient';
 import BoltzClient from '../boltz/BoltzClient';
 import { OutputType } from '../proto/boltzrpc_pb';
-import Swap from '../db/models/Swap';
 import ReverseSwap from '../db/models/ReverseSwap';
-import Report from '../report/Report';
 import BackupScheduler from '../backup/BackupScheduler';
 import { satoshisToCoins, parseBalances, getFeeSymbol, stringify } from '../Utils';
 
@@ -43,7 +43,7 @@ class CommandHandler {
       [Command.Help, { description: 'gets a list of all available commands', executor: this.help }],
 
       [Command.GetFees, { description: 'gets the accumulated fees', executor: this.getFees }],
-      [Command.GetBalance, { description: 'gets the balance of the wallet and channels', executor: this.getBalance }],
+      [Command.GetBalance, { description: 'gets the balance of the wallets and channels', executor: this.getBalance }],
       [Command.SwapInfo, { description: 'gets all available information about a (reverse) swap', executor: this.swapInfo }],
 
       [Command.Backup, { description: 'uploads a backup of the databases', executor: this.backup }],
@@ -63,12 +63,8 @@ class CommandHandler {
         if (commandInfo) {
           this.logger.silly(`Executing command: ${command}`);
           await commandInfo.executor(args);
-
-          return;
         }
       }
-
-      await this.discord.sendMessage(`Could not find command: *\"${command}\"*. Type **help** for a list of all commands`);
     });
   }
 
@@ -97,12 +93,15 @@ class CommandHandler {
         `Wallet: ${satoshisToCoins(balance.walletBalance!.totalBalance)} ${symbol}`;
 
       if (balance.lightningBalance) {
-        const { localBalance, remoteBalance } = balance.lightningBalance;
+        const { walletBalance, channelBalance } = balance.lightningBalance;
+        const { localBalance, remoteBalance } = channelBalance!;
 
         // tslint:disable-next-line:prefer-template
-        message += '\n\nChannels:\n' +
-          `  Local: ${satoshisToCoins(localBalance)} ${symbol}\n` +
-          `  Remote: ${satoshisToCoins(remoteBalance)} ${symbol}`;
+        message += '\n\nLND:\n' +
+          `  Wallet: ${satoshisToCoins(walletBalance!.totalBalance)} ${symbol}\n\n` +
+          '  Channels:\n' +
+          `    Local: ${satoshisToCoins(localBalance)} ${symbol}\n` +
+          `    Remote: ${satoshisToCoins(remoteBalance)} ${symbol}`;
       }
     });
 
@@ -112,7 +111,7 @@ class CommandHandler {
   private getFees = async () => {
     let message = 'Fees:\n';
 
-    const { swaps, reverseSwaps } = await Report.getSuccessfulTrades(this.service.swapRepository, this.service.reverseSwapRepository);
+    const { swaps, reverseSwaps } = await Report.getSuccessfulSwaps(this.service.swapRepository, this.service.reverseSwapRepository);
     const fees = this.getFeeFromSwaps(swaps, reverseSwaps);
 
     fees.forEach((fee, symbol) => {
@@ -123,12 +122,12 @@ class CommandHandler {
   }
 
   private swapInfo = async (args: string[]) => {
-    let id = '';
-
-    if (args.length !== 0) {
-      id = args[0];
+    if (args.length === 0) {
+      await this.sendCouldNotFindSwap('');
       return;
     }
+
+    const id = args[0];
 
     const swap = await this.service.swapRepository.getSwap({
       id: {
@@ -137,7 +136,7 @@ class CommandHandler {
     });
 
     if (swap) {
-      await this.discord.sendMessage(`Swap ${id}: ${stringify(swap)}`);
+      await this.sendSwapInfo(swap, false);
       return;
     } else {
       // Query for a reverse swap because there was no normal one found with the specified id
@@ -148,7 +147,7 @@ class CommandHandler {
       });
 
       if (reverseSwap) {
-        await this.discord.sendMessage(`Reverse swap ${id}: ${stringify(reverseSwap)}`);
+        await this.sendSwapInfo(reverseSwap, true);
         return;
       }
     }
@@ -157,20 +156,21 @@ class CommandHandler {
   }
 
   private newAddress = async (args: string[]) => {
-    let currency = '';
-    let outputType = OutputType.COMPATIBILITY;
-
     try {
-      if (args.length !== 0) {
-        currency = args[0].toUpperCase();
+      if (args.length === 0) {
+        throw 'no currency was specified';
+      }
 
-        if (args.length > 1) {
-          outputType = this.getOutputType(args[1].toLowerCase());
-        }
+      const currency = args[0].toUpperCase();
+      let outputType = OutputType.COMPATIBILITY;
+
+      if (args.length > 1) {
+        outputType = this.getOutputType(args[1]);
       }
 
       const response = await this.boltz.newAddress(currency, outputType);
       await this.discord.sendMessage(response.address);
+
     } catch (error) {
       await this.discord.sendMessage(`Could not generate address: ${error}`);
     }
@@ -227,6 +227,10 @@ class CommandHandler {
     getFeeFromSwapMap(reverseSwaps, true);
 
     return fees;
+  }
+
+  private sendSwapInfo = async (swap: Swap | ReverseSwap, isReverse: boolean) => {
+    await this.discord.sendMessage(`${isReverse ? 'Reverse swap' : 'Swap'} ${swap.id}:\n\`\`\`${stringify(swap)}\`\`\``);
   }
 
   private sendCouldNotFindSwap = async (id: string) => {

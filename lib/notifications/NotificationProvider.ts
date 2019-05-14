@@ -1,15 +1,22 @@
 import Logger from '../Logger';
+import Swap from '../db/models/Swap';
 import Service from '../service/Service';
 import DiscordClient from './DiscordClient';
 import CommandHandler from './CommandHandler';
 import { CurrencyConfig } from '../consts/Types';
 import { SwapUpdateEvent } from '../consts/Enums';
-import { OutputType, OrderSide } from '../proto/boltzrpc_pb';
-import BoltzClient, { ConnectionStatus } from '../boltz/BoltzClient';
-import Swap from '../db/models/Swap';
 import ReverseSwap from '../db/models/ReverseSwap';
 import BackupScheduler from '../backup/BackupScheduler';
-import { minutesToMilliseconds, satoshisToCoins, splitPairId, parseBalances, getFeeSymbol } from '../Utils';
+import { OutputType, OrderSide } from '../proto/boltzrpc_pb';
+import BoltzClient, { ConnectionStatus } from '../boltz/BoltzClient';
+import {
+  splitPairId,
+  parseBalances,
+  satoshisToCoins,
+  getAmountOfInvoice,
+  minutesToMilliseconds,
+  getSmallestDenomination,
+} from '../Utils';
 
 type NotificationConfig = {
   token: string;
@@ -127,7 +134,7 @@ class NotificationProvider {
         await this.checkBalance(symbol, this.walletAlerts, balance.walletBalance!.totalBalance, minWalletBalance, true);
 
         if (balance.lightningBalance) {
-          const { localBalance, remoteBalance } = balance.lightningBalance;
+          const { localBalance, remoteBalance } = balance.lightningBalance.channelBalance!;
 
           await this.checkBalance(symbol, this.localBalanceAlerts, localBalance, minLocalBalance, false, true);
           await this.checkBalance(symbol, this.remoteBalanceAlerts, remoteBalance, minRemoteBalance, false, false);
@@ -179,8 +186,72 @@ class NotificationProvider {
   }
 
   private listenToService = () => {
+    const getSwapName = (isReverse: boolean) => isReverse ? 'Reverse swap' : 'Swap';
+
+    const getBasicSwapInfo = (swap: Swap | ReverseSwap, onchainSymbol: string, lightningSymbol: string) => {
+      const lightningAmount = getAmountOfInvoice(swap.invoice);
+
+      // tslint:disable-next-line: prefer-template
+      return `ID: ${swap.id}\n` +
+        `Pair: ${swap.pair}\n` +
+        `Order side: ${swap.orderSide === OrderSide.BUY ? 'buy' : 'sell'}\n` +
+        `${swap.onchainAmount ? `Onchain amount: ${satoshisToCoins(swap.onchainAmount)} ${onchainSymbol}\n` : ''}` +
+        `Lightning amount: ${satoshisToCoins(lightningAmount)} ${lightningSymbol}\n`;
+    };
+
+    const getSymbols = (pairId: string, orderSide: number, isReverse: boolean) => {
+      const { base, quote } = splitPairId(pairId);
+
+      const getOnchainSymbol = (orderSide: number, isReverse: boolean) => {
+        const isBuy = orderSide === OrderSide.BUY;
+
+        if (isReverse) {
+          return isBuy ? base : quote;
+        } else {
+          return isBuy ? quote : base;
+        }
+      };
+
+      return {
+        onchainSymbol: getOnchainSymbol(orderSide, isReverse),
+        lightningSymbol: getOnchainSymbol(orderSide, !isReverse),
+      };
+    };
+
     this.service.on('swap.successful', async (swap) => {
-      await this.sendSwapSuccessful(swap);
+      const isReverse = swap.status === SwapUpdateEvent.InvoiceSettled;
+      const { onchainSymbol, lightningSymbol } = getSymbols(swap.pair, swap.orderSide, isReverse);
+
+      // tslint:disable-next-line: prefer-template
+      let message = `**${getSwapName(isReverse)}**\n\n` +
+       `${getBasicSwapInfo(swap, onchainSymbol, lightningSymbol)}` +
+       `Fees earned: ${satoshisToCoins(swap.fee)} ${lightningSymbol}\n` +
+       `Miner fees: ${satoshisToCoins(swap.minerFee!)} ${onchainSymbol}`;
+
+      if (!isReverse) {
+
+        // The routing fees are denominated in millisatoshi
+        message += `\nRouting fees: ${(swap as Swap).routingFee! / 1000} ${getSmallestDenomination(lightningSymbol)}`;
+      }
+
+      await this.discord.sendMessage(message);
+    });
+
+    this.service.on('swap.failed', async (swap, reason) => {
+      const isReverse = swap.status === SwapUpdateEvent.TransactionRefunded;
+      const { onchainSymbol, lightningSymbol } = getSymbols(swap.pair, swap.orderSide, isReverse);
+
+      // tslint:disable-next-line: prefer-template
+      let message = `**${getSwapName(isReverse)} failed: ${reason}**\n\n` +
+        `${getBasicSwapInfo(swap, onchainSymbol, lightningSymbol)}`;
+
+      if (isReverse) {
+        message += `Miner fees: ${satoshisToCoins(swap.minerFee!)} ${onchainSymbol}`;
+      } else {
+        message += `Invoice: ${swap.invoice}`;
+      }
+
+      await this.discord.sendMessage(message);
     });
   }
 
@@ -214,33 +285,6 @@ class NotificationProvider {
     await this.discord.sendMessage(
       `The ${currency} ${balanceName} balance of ${actual} ${currency} is more than expected ${expected} ${currency} again`,
     );
-  }
-
-  private sendSwapSuccessful = async (swap: Swap | ReverseSwap) => {
-    const isReverse = swap.status === SwapUpdateEvent.InvoiceSettled;
-    const feeSymbol = getFeeSymbol(swap.pair, swap.orderSide, isReverse);
-
-    const getSwapDirection = (): string => {
-      let { base, quote } = splitPairId(swap.pair);
-
-      // Switch the symbols if the swap was a sell order
-      if (swap.orderSide === OrderSide.SELL) {
-        [base, quote] = [quote, base];
-      }
-
-      let direction: string;
-
-      if (isReverse) {
-        direction = `Lightning ${quote} to onchain ${base}`;
-      } else {
-        direction = `onchain ${quote} to Lightning ${base}`;
-      }
-
-      return direction;
-    };
-
-    const message = `Swapped ${getSwapDirection()} and earned ${satoshisToCoins(swap.fee)} ${feeSymbol} in fees`;
-    await this.discord.sendMessage(message);
   }
 
   private sendLostConnection = async (service: string) => {

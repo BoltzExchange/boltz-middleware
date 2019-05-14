@@ -35,4 +35,12 @@ export default {
     message: 'please wait until your lockup transaction has 10 confirmations before you try to refund',
     code: concatErrorCode(ErrorCodePrefix.Service, 7),
   }),
+  INVOICE_COULD_NOT_BE_PAID: (): Error => ({
+    message: 'invoice could not be paid',
+    code: concatErrorCode(ErrorCodePrefix.Service, 8),
+  }),
+  ONCHAIN_HTLC_TIMED_OUT: (): Error => ({
+    message: 'onchain HTLC timed out',
+    code: concatErrorCode(ErrorCodePrefix.Service, 9),
+  }),
 };
