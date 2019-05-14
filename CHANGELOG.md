@@ -1,3 +1,19 @@
+# [1.0.0-beta.2](https://github.com/BoltzExchange/boltz-middleware/compare/v1.0.0-beta...v1.0.0-beta.2) (2019-05-14)
+
+
+### Bug Fixes
+
+* swapinfo Discord command ([d49bf17](https://github.com/BoltzExchange/boltz-middleware/commit/d49bf17))
+
+
+### Features
+
+* more advanced accounting ([098201c](https://github.com/BoltzExchange/boltz-middleware/commit/098201c))
+* scheduled database backups ([1dba6dd](https://github.com/BoltzExchange/boltz-middleware/commit/1dba6dd))
+* upload LND multi channel backups ([256ceed](https://github.com/BoltzExchange/boltz-middleware/commit/256ceed))
+
+
+
 # 1.0.0-beta (2019-04-27)
 
 
