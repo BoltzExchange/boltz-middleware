@@ -1,13 +1,9 @@
 #!/usr/bin/env node
-const { generateReport } = require('../dist/CliTools');
+const { generateStats } = require('../dist/CliTools');
 
 const { argv } = require('yargs').options({
   dbpath: {
     describe: 'Path to the database file',
-    type: 'string',
-  },
-  reportpath: {
-    describe: 'Path to the CSV report',
     type: 'string',
   },
 });
@@ -18,4 +14,4 @@ delete argv.$0;
 delete argv.help;
 delete argv.version;
 
-generateReport(argv);
+generateStats(argv);

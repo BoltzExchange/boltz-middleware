@@ -87,12 +87,12 @@ describe('Utils', () => {
   });
 
   it('should get amount of invoice', () => {
-    expect(utils.getAmountOfInvoice(
+    expect(utils.getInvoiceAmount(
       // tslint:disable-next-line: max-line-length
       'lnbcrt100u1pwddnw3pp5rykwp0q399hrcluxnyhv7kfpmk4uttpu00wx9098cesacr9yzk8sdqqcqzpgn9g5vjr0qcudrgu66phz5tx0j0fnxe0gzyl5u6yat9y3xskrqyhherceutcuh9m6h89anphe5un3qac8f2r9j5hykn3uh6z0zkp9racp5lecss',
     )).to.be.equal(10000);
 
-    expect(utils.getAmountOfInvoice(
+    expect(utils.getInvoiceAmount(
       // tslint:disable-next-line: max-line-length
       'lnbcrt987650n1pwddnskpp5d4tw4gpjgqdqlgkq5yc309r2kguure53cff8a0kjta5hurltc4yqdqqcqzpgzeu404h9udp5ay39kdvau7m5kdkvycajfhx46slgkfgyhpngnztptulxpx8s7qncp45v5nxjulje5268cu22gxysg9hm3ul8ktrw5zgqcg98hg',
     )).to.be.equal(98765);

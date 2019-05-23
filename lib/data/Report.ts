@@ -1,14 +1,10 @@
-import fs from 'fs';
 import { Op } from 'sequelize';
-import { Arguments } from 'yargs';
-import Logger from '../Logger';
 import Swap from '../db/models/Swap';
-import Database from '../db/Database';
 import { SwapUpdateEvent } from '../consts/Enums';
 import ReverseSwap from '../db/models/ReverseSwap';
 import SwapRepository from '../service/SwapRepository';
 import ReverseSwapRepository from '../service/ReverseSwapRepository';
-import { getChainCurrency, resolveHome, satoshisToCoins, splitPairId } from '../Utils';
+import { getChainCurrency, satoshisToCoins, splitPairId } from '../Utils';
 
 type Entry = {
   date: Date;
@@ -30,25 +26,10 @@ type SwapArrays = {
 };
 
 class Report {
-  constructor(private swapRepository: SwapRepository, private reverseSwapRepository: ReverseSwapRepository) {}
-
-  public static cli = async (argv: Arguments<any>) => {
-    // Get the path to the database from the command line arguments or
-    // use a default one if none was specified
-    const dbPath = argv.dbpath || '~/.boltz-middleware/boltz.db';
-
-    const db = new Database(Logger.disabledLogger, resolveHome(dbPath));
-    await db.init();
-
-    const report = new Report(new SwapRepository(), new ReverseSwapRepository());
-    const csv = await report.generate();
-
-    if (argv.reportpath) {
-      fs.writeFileSync(resolveHome(argv.reportpath), csv);
-    } else {
-      console.log(csv);
-    }
-  }
+  constructor(
+    private swapRepository: SwapRepository,
+    private reverseSwapRepository: ReverseSwapRepository,
+  ) {}
 
   /**
    * Gets all successful (reverse) swaps
@@ -57,7 +38,6 @@ class Report {
     swapRepository: SwapRepository,
     reverseSwapRepository: ReverseSwapRepository,
   ): Promise<SwapArrays> => {
-
     const [swaps, reverseSwaps] = await Promise.all([
       swapRepository.getSwaps({
         status: {
@@ -88,7 +68,7 @@ class Report {
     const [swaps, reverseSwaps] = await Promise.all([
       swapRepository.getSwaps({
         status: {
-          [Op.eq]: SwapUpdateEvent.InvoiceFailedToPay,
+          [Op.or]: [SwapUpdateEvent.InvoiceFailedToPay, SwapUpdateEvent.SwapExpired],
         },
       }),
       reverseSwapRepository.getReverseSwaps({

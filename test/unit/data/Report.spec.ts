@@ -1,7 +1,7 @@
 import { expect } from 'chai';
 import { mock, when, anything, instance } from 'ts-mockito';
+import Report from '../../../lib/data/Report';
 import Swap from '../../../lib/db/models/Swap';
-import Report from '../../../lib/report/Report';
 import ReverseSwap from '../../../lib/db/models/ReverseSwap';
 import SwapRepository from '../../../lib/service/SwapRepository';
 import ReverseSwapRepository from '../../../lib/service/ReverseSwapRepository';
@@ -27,20 +27,20 @@ describe('Report', () => {
   );
 
   before(() => {
-    const setMockValues = (mock: Swap | ReverseSwap, isSecond: boolean) => {
+    const setMockValues = (mock: Swap | ReverseSwap, isBuy: boolean) => {
       when(mock.fee).thenReturn(1000);
       when(mock.pair).thenReturn('LTC/BTC');
       when(mock.createdAt).thenReturn(date);
       when(mock.minerFee).thenReturn(10000);
-      when(mock.orderSide).thenReturn(isSecond ? 1 : 0);
+      when(mock.orderSide).thenReturn(isBuy ? 0 : 1);
     };
 
     for (let i = 0; i < 2; i += 1) {
       const swapMock = mock(Swap);
       const reverseSwapMock = mock(ReverseSwap);
 
-      setMockValues(swapMock, i === 1);
-      setMockValues(reverseSwapMock, i === 1);
+      setMockValues(swapMock, i !== 1);
+      setMockValues(reverseSwapMock, i !== 1);
 
       when(swapMock.routingFee).thenReturn(1);
 

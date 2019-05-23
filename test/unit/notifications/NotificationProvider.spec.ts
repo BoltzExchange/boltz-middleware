@@ -1,16 +1,16 @@
 import { mock, anything, when, instance, verify } from 'ts-mockito';
+import { wait } from '../../Utils';
 import Logger from '../../../lib/Logger';
 import Swap from '../../../lib/db/models/Swap';
 import Service from '../../../lib/service/Service';
 import BoltzClient from '../../../lib/boltz/BoltzClient';
+import { SwapUpdateEvent } from '../../../lib/consts/Enums';
 import ReverseSwap from '../../../lib/db/models/ReverseSwap';
 import BackupScheduler from '../../../lib/backup/BackupScheduler';
 import DiscordClient from '../../../lib/notifications/DiscordClient';
+import { getInvoiceAmount, satoshisToCoins } from '../../../lib/Utils';
 import { swapExample, reverseSwapExample } from './CommandHandler.spec';
 import NotificationProvider from '../../../lib/notifications/NotificationProvider';
-import { wait } from '../../Utils';
-import { getAmountOfInvoice, satoshisToCoins } from '../../../lib/Utils';
-import { SwapUpdateEvent } from '../../../lib/consts/Enums';
 
 describe('NotificationProvider', () => {
   const swapMock = mock(Swap);
@@ -110,7 +110,7 @@ describe('NotificationProvider', () => {
       `Pair: ${swap.pair}\n` +
       'Order side: buy\n' +
       `Onchain amount: ${satoshisToCoins(swap.onchainAmount!)} BTC\n` +
-      `Lightning amount: ${satoshisToCoins(getAmountOfInvoice(swap.invoice))} LTC\n` +
+      `Lightning amount: ${satoshisToCoins(getInvoiceAmount(swap.invoice))} LTC\n` +
       `Fees earned: ${satoshisToCoins(swap.fee)} BTC\n` +
       `Miner fees: ${satoshisToCoins(swap.minerFee!)} BTC\n` +
       `Routing fees: ${swap.routingFee! / 1000} litoshi`,
@@ -128,7 +128,7 @@ describe('NotificationProvider', () => {
       `Pair: ${reverseSwap.pair}\n` +
       'Order side: sell\n' +
       `Onchain amount: ${satoshisToCoins(reverseSwap.onchainAmount!)} BTC\n` +
-      `Lightning amount: ${satoshisToCoins(getAmountOfInvoice(reverseSwap.invoice))} LTC\n` +
+      `Lightning amount: ${satoshisToCoins(getInvoiceAmount(reverseSwap.invoice))} LTC\n` +
       `Fees earned: ${satoshisToCoins(reverseSwap.fee)} LTC\n` +
       `Miner fees: ${satoshisToCoins(reverseSwap.minerFee!)} BTC`,
     ));
@@ -147,7 +147,7 @@ describe('NotificationProvider', () => {
       `Pair: ${swap.pair}\n` +
       'Order side: buy\n' +
       `Onchain amount: ${satoshisToCoins(swap.onchainAmount!)} BTC\n` +
-      `Lightning amount: ${satoshisToCoins(getAmountOfInvoice(swap.invoice))} LTC\n` +
+      `Lightning amount: ${satoshisToCoins(getInvoiceAmount(swap.invoice))} LTC\n` +
       `Invoice: ${swap.invoice}`,
     )).once();
 
@@ -163,7 +163,7 @@ describe('NotificationProvider', () => {
       `Pair: ${reverseSwap.pair}\n` +
       'Order side: sell\n' +
       `Onchain amount: ${satoshisToCoins(reverseSwap.onchainAmount!)} BTC\n` +
-      `Lightning amount: ${satoshisToCoins(getAmountOfInvoice(reverseSwap.invoice))} LTC\n` +
+      `Lightning amount: ${satoshisToCoins(getInvoiceAmount(reverseSwap.invoice))} LTC\n` +
       `Miner fees: ${satoshisToCoins(reverseSwap.minerFee)} BTC`,
     )).once();
   });

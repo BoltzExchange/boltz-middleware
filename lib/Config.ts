@@ -27,13 +27,21 @@ class Config {
 
   public pairs: PairConfig[];
 
-  private defaultDataDir = getServiceDir('boltz-middleware');
-  private dataDir = this.defaultDataDir;
+  // Default paths
+  public static defaultDatadir = getServiceDir('boltz-middleware');
+
+  public static defaultConfigpath = 'boltz.conf';
+  public static defaultLogpath = 'boltz.log';
+  public static defaultDbpath = 'boltz.db';
+
+  public static defaultPrivatekeypath = 'backupPrivatekey.pem';
+
+  private dataDir = Config.defaultDatadir;
 
   private configpath: string;
 
   constructor() {
-    const { configpath, logpath, dbpath, backup } = this.getDataDirPaths(this.defaultDataDir);
+    const { configpath, logpath, dbpath, backup } = this.getDataDirPaths(Config.defaultDatadir);
 
     this.configpath = configpath;
 
@@ -180,11 +188,11 @@ class Config {
 
   private getDataDirPaths = (dataDir: string) => {
     return {
-      configpath: path.join(dataDir, 'boltz.conf'),
-      logpath: path.join(dataDir, 'boltz.log'),
-      dbpath: path.join(dataDir, 'boltz.db'),
+      configpath: path.join(dataDir, Config.defaultConfigpath),
+      logpath: path.join(dataDir, Config.defaultLogpath),
+      dbpath: path.join(dataDir, Config.defaultDbpath),
       backup: {
-        privatekeypath: path.join(dataDir, 'backupPrivatekey.pem'),
+        privatekeypath: path.join(dataDir, Config.defaultPrivatekeypath),
       },
     };
   }
