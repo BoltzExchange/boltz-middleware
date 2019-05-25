@@ -49,6 +49,9 @@ interface BoltzClient {
   on(event: 'claim', listener: (lockupTransactionHash: string, minerFee: number) => void): this;
   emit(event: 'claim', lockupTransactionHash: string, minerFee: number): boolean;
 
+  on(event: 'abort', listener: (invoice: string) => void): this;
+  emit(event: 'abort', invoice: string): boolean;
+
   on(event: 'refund', listener: (lockupTransactionHash: string, minerFee: number) => void): this;
   emit(event: 'refund', lockupTransactionHash: string, minerFee: number): boolean;
 
@@ -64,9 +67,8 @@ class BoltzClient extends BaseClient {
   private meta!: grpc.Metadata;
 
   private channelBackupSubscription?: ClientReadableStream<boltzrpc.ChannelBackup>;
-  private claimsSubscription?: ClientReadableStream<boltzrpc.SubscribeClaimsResponse>;
-  private refundsSubscription?: ClientReadableStream<boltzrpc.SubscribeRefundsResponse>;
   private invoicesSubscription?: ClientReadableStream<boltzrpc.SubscribeInvoicesResponse>;
+  private swapEventsSubscription?: ClientReadableStream<boltzrpc.SubscribeSwapEventsResponse>;
   private transactionSubscription?: ClientReadableStream<boltzrpc.SubscribeTransactionsResponse>;
 
   private isReconnecting = false;
@@ -291,47 +293,50 @@ class BoltzClient extends BaseClient {
   }
 
   /**
-   * Subscribes to a stream of swap outputs that Boltz claims
+   * Subscribes to a stream of swap events
    */
-  private subscribeClaims = () => {
-    if (this.claimsSubscription) {
-      this.claimsSubscription.cancel();
+  private subscribeSwapEvents = () => {
+    if (this.swapEventsSubscription) {
+      this.swapEventsSubscription.cancel();
     }
 
-    this.claimsSubscription = this.boltz.subscribeClaims(new boltzrpc.SubscribeClaimsRequest(), this.meta)
-      .on('data', (response: boltzrpc.SubscribeClaimsResponse) => {
-        const lockupTransactionHash = response.getLockupTransactionHash();
+    this.swapEventsSubscription = this.boltz.subscribeSwapEvents(new boltzrpc.SubscribeSwapEventsRequest(), this.meta)
+      .on('data', (response: boltzrpc.SubscribeSwapEventsResponse) => {
+        const event = response.getEvent();
 
-        this.logger.debug(`Claimed lockup transaction: ${lockupTransactionHash}`);
-        this.emit('claim', lockupTransactionHash, response.getMinerFee());
+        switch (event) {
+          case boltzrpc.SwapEvent.CLAIM:
+            const claimDetails = response.getClaimDetails()!;
+
+            const claimTransactionHash = claimDetails.getLockupTransactionHash();
+
+            this.logger.debug(`Claimed lockup transaction: ${claimTransactionHash}`);
+            this.emit('claim', claimTransactionHash, claimDetails.getMinerFee());
+            break;
+
+          case boltzrpc.SwapEvent.ABORT:
+            const abortDetails = response.getAbortDetails()!;
+
+            const invoice = abortDetails.getInvoice();
+
+            this.logger.debug(`Aborted swap ${invoice}`);
+            this.emit('abort', invoice);
+            break;
+
+          case boltzrpc.SwapEvent.REFUND:
+            const refundDetails = response.getRefundDetails()!;
+
+            const refundTransactionHash = refundDetails.getLockupTransactionHash();
+
+            this.logger.debug(`Refunded lockup transaction: ${refundTransactionHash}`);
+            this.emit('refund', refundTransactionHash, refundDetails.getMinerFee());
+            break;
+        }
       })
       .on('error', async (error) => {
         this.emit('status.updated', ConnectionStatus.Disconnected);
 
-        this.logger.error(`Claims subscription errored: ${stringify(error)}`);
-        await this.startReconnectTimer();
-      });
-  }
-
-  /**
-   * Subscribes to a stream of lockup transactions that Boltz refunds
-   */
-  private subscribeRefunds = () => {
-    if (this.refundsSubscription) {
-      this.refundsSubscription.cancel();
-    }
-
-    this.refundsSubscription = this.boltz.subscribeRefunds(new boltzrpc.SubscribeRefundsRequest(), this.meta)
-      .on('data', (response: boltzrpc.SubscribeRefundsResponse) => {
-        const lockupTransactionHash = response.getLockupTransactionHash();
-
-        this.logger.debug(`Refunded lockup transaction: ${lockupTransactionHash}`);
-        this.emit('refund', lockupTransactionHash, response.getMinerFee());
-      })
-      .on('error', async (error) => {
-        this.emit('status.updated', ConnectionStatus.Disconnected);
-
-        this.logger.error(`Refunds subscription errored: ${stringify(error)}`);
+        this.logger.error(`Swap events subscription errored: ${stringify(error)}`);
         await this.startReconnectTimer();
       });
   }
@@ -379,8 +384,7 @@ class BoltzClient extends BaseClient {
 
       this.isReconnecting = false;
 
-      this.subscribeClaims();
-      this.subscribeRefunds();
+      this.subscribeSwapEvents();
       this.subscribeInvoices();
       this.subscribeTransactions();
       this.subscribeChannelBackups();
