@@ -4,8 +4,8 @@ import Logger from '../../../lib/Logger';
 import Database from '../../../lib/db/Database';
 import FeeProvider from '../../../lib/rates/FeeProvider';
 import RateProvider from '../../../lib/rates/RateProvider';
-import CryptoCompare from '../../../lib/rates/CryptoCompare';
 import PairRepository from '../../../lib/service/PairRepository';
+import DataProvider from '../../../lib/rates/data/DataProvider';
 
 describe('RateProvider', () => {
   const currencyConfig = {
@@ -78,18 +78,11 @@ describe('RateProvider', () => {
     },
   ]);
 
-  // Also mock the CryptoCompare client so that the tests don't rely on their API
-  //
-  // The integration tests should make sure that the client is still compatible with
-  // the latest version of the CryptoCompare API
-  const cryptoCompareMock = mock(CryptoCompare);
-  when(cryptoCompareMock.getPriceMulti(anything(), anything())).thenResolve({
-    LTC: {
-      BTC: rates.LTC,
-    },
-  });
+  // Also mock the DataProvider so that the tests don't rely on real exchange APIs
+  const dataProviderMock = mock(DataProvider);
+  when(dataProviderMock.getPrice(anything(), anything())).thenResolve(rates.LTC);
 
-  rateProvider['cryptoCompare'] = instance(cryptoCompareMock);
+  rateProvider['dataProvider'] = instance(dataProviderMock);
 
   const db = new Database(Logger.disabledLogger, ':memory:');
   const pairRepository = new PairRepository();

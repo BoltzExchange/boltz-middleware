@@ -46,7 +46,7 @@ class Config {
       host: '127.0.0.1',
       port: 9001,
 
-      interval: 5,
+      interval: 1,
     };
 
     this.boltz = {
