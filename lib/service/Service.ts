@@ -158,6 +158,7 @@ class Service extends EventEmitter {
 
     this.logger.verbose(`Initialised ${this.pairs.size} pairs: ${stringify(Array.from(this.pairs.keys()))}`);
 
+    this.listenAbort();
     this.listenClaims();
     this.listenRefunds();
     this.listenInvoices();
@@ -218,6 +219,8 @@ class Service extends EventEmitter {
    * Creates a new Swap from the chain to Lightning
    */
   public createSwap = async (pairId: string, orderSide: string, invoice: string, refundPublicKey: string) => {
+    await this.checkSwapInvoice(invoice);
+
     const { base, quote, rate } = this.getPair(pairId);
 
     const side = this.getOrderSide(orderSide);
@@ -240,18 +243,14 @@ class Service extends EventEmitter {
 
     const id = generateId(6);
 
-    try {
-      await this.swapRepository.addSwap({
-        id,
-        invoice,
-        pair: pairId,
-        orderSide: side,
-        fee: percentageFee,
-        lockupAddress: address,
-      });
-    } catch (error) {
-      throw Errors.SWAP_WITH_INVOICE_EXISTS_ALREADY();
-    }
+    await this.swapRepository.addSwap({
+      id,
+      invoice,
+      pair: pairId,
+      orderSide: side,
+      fee: percentageFee,
+      lockupAddress: address,
+    });
 
     return {
       id,
@@ -316,6 +315,21 @@ class Service extends EventEmitter {
       lockupTransaction,
       lockupTransactionHash,
     };
+  }
+
+  /**
+   * Makes sure that there is no swap with the same invoice already
+   */
+  private checkSwapInvoice = async (invoice: string) => {
+    const swap = await this.swapRepository.getSwap({
+      invoice: {
+        [Op.eq]: invoice,
+      },
+    });
+
+    if (swap !== null) {
+      throw Errors.SWAP_WITH_INVOICE_EXISTS_ALREADY();
+    }
   }
 
   /**
@@ -471,6 +485,27 @@ class Service extends EventEmitter {
     });
   }
 
+  private listenAbort = () => {
+    this.boltz.on('abort', async (invoice: string) => {
+      const swap = await this.swapRepository.getSwap({
+        invoice: {
+          [Op.eq]: invoice,
+        },
+      });
+
+      if (swap) {
+        await this.swapRepository.setSwapStatus(swap, SwapUpdateEvent.SwapExpired);
+
+        const error = Errors.ONCHAIN_HTLC_TIMED_OUT();
+
+        this.logger.info(`Swap ${swap.id} failed: ${error.message}`);
+
+        this.emit('swap.update', swap.id, { event: SwapUpdateEvent.SwapExpired });
+        this.emit('swap.failed', swap, '');
+      }
+    });
+  }
+
   private listenRefunds = () => {
     this.boltz.on('refund', async (lockupTransactionId: string, minerFee: number) => {
       let reverseSwap = await this.reverseSwapRepository.getReverseSwap({
@@ -484,7 +519,7 @@ class Service extends EventEmitter {
 
         const error = Errors.ONCHAIN_HTLC_TIMED_OUT();
 
-        this.logger.info(`Reverse swap failed: ${error.message}`);
+        this.logger.info(`Reverse swap ${reverseSwap.id} failed: ${error.message}`);
 
         this.emit('swap.update', reverseSwap.id, { event: SwapUpdateEvent.TransactionRefunded });
         this.emit('swap.failed', reverseSwap, error.message);
