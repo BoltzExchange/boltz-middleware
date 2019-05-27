@@ -227,7 +227,7 @@ class Service extends EventEmitter {
 
     const chainConfig = this.getChainConfig(base);
 
-    if (!!chainConfig) {
+    if (chainConfig !== undefined) {
       throw Errors.CURRENCY_NOT_SUPPORTED_BY_BACKEND(base);
     }
 
@@ -247,7 +247,7 @@ class Service extends EventEmitter {
       expectedAmount,
       timeoutBlockHeight,
     } = await this.boltz.createSwap(base, quote, side, rate, baseFee + percentageFee, invoice, refundPublicKey,
-      chainConfig!.timeoutBlockNumber, OutputType.COMPATIBILITY);
+      chainConfig!.timeoutBlockDelta, OutputType.COMPATIBILITY);
     await this.boltz.listenOnAddress(chainCurrency, address);
 
     const id = generateId(6);
@@ -288,7 +288,7 @@ class Service extends EventEmitter {
 
     const chainConfig = this.getChainConfig(base);
 
-    if (!!chainConfig) {
+    if (chainConfig !== undefined) {
       throw Errors.CURRENCY_NOT_SUPPORTED_BY_BACKEND(base);
     }
 
@@ -306,7 +306,7 @@ class Service extends EventEmitter {
       lockupAddress,
       lockupTransaction,
       lockupTransactionHash,
-    } = await this.boltz.createReverseSwap(base, quote, side, rate, baseFee + percentageFee, claimPublicKey, amount, chainConfig!.timeoutBlockNumber);
+    } = await this.boltz.createReverseSwap(base, quote, side, rate, baseFee + percentageFee, claimPublicKey, amount, chainConfig!.timeoutBlockDelta);
 
     await this.boltz.listenOnAddress(chainCurrency, lockupAddress);
 
