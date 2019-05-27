@@ -9,29 +9,24 @@ service Boltz {
   /* Gets the balance for either all wallets or just a single one if specified */
   rpc GetBalance (GetBalanceRequest) returns (GetBalanceResponse);
 
-  /* Gets a new address of a specified wallet. The "type" parameter is optional and defaults to "OutputType.LEGACY" */
-  rpc NewAddress (NewAddressRequest) returns (NewAddressResponse);
 
   /* Gets a hex encoded transaction from a transaction hash on the specified network */
   rpc GetTransaction (GetTransactionRequest) returns (GetTransactionResponse);
 
-  /* Gets a fee estimation in satoshis per vbyte for either all currencies or just a single one if specified */ 
-  rpc GetFeeEstimation (GetFeeEstimationRequest) returns (GetFeeEstimationResponse);
-
   /* Broadcasts a hex encoded transaction on the specified network */
   rpc BroadcastTransaction (BroadcastTransactionRequest) returns (BroadcastTransactionResponse);
 
-  /* Adds an entry to the list of addresses SubscribeTransactions listens to */
-  rpc ListenOnAddress (ListenOnAddressRequest) returns (ListenOnAddressResponse);
 
-  /* Subscribes to a stream of confirmed transactions to addresses that were specified with "ListenOnAddress" */
-  rpc SubscribeTransactions (SubscribeTransactionsRequest) returns (stream SubscribeTransactionsResponse);
+  /* Gets a fee estimation in satoshis per vbyte for either all currencies or just a single one if specified */ 
+  rpc GetFeeEstimation (GetFeeEstimationRequest) returns (GetFeeEstimationResponse);
 
-  /* Subscribes to a stream of invoice events */
-  rpc SubscribeInvoices (SubscribeInvoicesRequest) returns (stream SubscribeInvoicesResponse);
 
-  /* Subscribes to a stream of lockup transactions that Boltz refunds */
-  rpc SubscribeRefunds (SubscribeRefundsRequest) returns (stream SubscribeRefundsResponse);
+  /* Gets a new address of a specified wallet. The "type" parameter is optional and defaults to "OutputType.LEGACY" */
+  rpc NewAddress (NewAddressRequest) returns (NewAddressResponse);
+
+  /* Sends onchain coins to a specified address */
+  rpc SendCoins (SendCoinsRequest) returns (SendCoinsResponse);
+
 
   /* Creates a new Swap from the chain to Lightning */
   rpc CreateSwap (CreateSwapRequest) returns (CreateSwapResponse);
@@ -39,8 +34,22 @@ service Boltz {
   /* Creates a new Swap from Lightning to the chain */
   rpc CreateReverseSwap (CreateReverseSwapRequest) returns (CreateReverseSwapResponse);
 
-  /* Sends coins to a specified address */
-  rpc SendCoins (SendCoinsRequest) returns (SendCoinsResponse);
+
+  /* Adds an entry to the list of addresses SubscribeTransactions listens to */
+  rpc ListenOnAddress (ListenOnAddressRequest) returns (ListenOnAddressResponse);
+
+
+  /* Subscribes to a stream of swap events */
+  rpc SubscribeSwapEvents (SubscribeSwapEventsRequest) returns (stream SubscribeSwapEventsResponse);
+
+  /* Subscribes to a stream of confirmed transactions to addresses that were specified with "ListenOnAddress" */
+  rpc SubscribeTransactions (SubscribeTransactionsRequest) returns (stream SubscribeTransactionsResponse);
+
+  /* Subscribes to a stream of invoice events */
+  rpc SubscribeInvoices (SubscribeInvoicesRequest) returns (stream SubscribeInvoicesResponse);
+
+  /* Subscribes to a stream of channel backups */
+  rpc SubscribeChannelBackups (SubscribeChannelBackupsRequest) returns (stream ChannelBackup);
 }
 
 enum OutputType {
@@ -57,7 +66,15 @@ enum OrderSide {
 enum InvoiceEvent {
   PAID = 0;
   FAILED_TO_PAY = 1;
+
   SETTLED = 2;
+}
+
+enum SwapEvent {
+  CLAIM = 0;
+  ABORT= 1;
+
+  REFUND = 2;
 }
 
 message GetInfoRequest {}
@@ -101,12 +118,16 @@ message Balance {
   WalletBalance wallet_balance = 1;
   LightningBalance lightning_balance = 2;
 }
+message LightningBalance {
+  WalletBalance wallet_balance = 1; 
+  ChannelBalance channel_balance = 2; 
+}
 message WalletBalance {
   uint64 total_balance = 1;
   uint64 confirmed_balance = 2;
   uint64 unconfirmed_balance = 3;
 }
-message LightningBalance {
+message ChannelBalance {
   uint64 local_balance = 1;
   uint64 remote_balance = 2;
 }
@@ -151,20 +172,51 @@ message ListenOnAddressResponse {}
 
 message SubscribeTransactionsRequest {}
 message SubscribeTransactionsResponse {
-  string transaction_hash = 1;
-  string output_address = 2;
+  string output_address = 1;
+  string transaction_hash = 2;
+  uint64 amount_received = 3;
 }
 
 message SubscribeInvoicesRequest {}
 message SubscribeInvoicesResponse {
   InvoiceEvent event = 1;
   string invoice = 2;
-  string preimage = 3;
+
+  oneof event_details {
+    string preimage = 3;
+
+    uint32 routing_fee = 4;
+  }
 }
 
-message SubscribeRefundsRequest {}
-message SubscribeRefundsResponse {
+message SubscribeSwapEventsRequest {}
+message SubscribeSwapEventsResponse {
+  SwapEvent event = 1;
+
+  oneof event_details {
+    ClaimDetails claim_details = 2;
+    AbortDetails abort_details = 3;
+
+    RefundDetails refund_details = 4;
+  }
+}
+
+message ClaimDetails {
   string lockup_transaction_hash = 1;
+  uint32 lockup_vout = 2;
+
+  uint32 miner_fee = 3;
+}
+
+message AbortDetails {
+  string invoice = 1;
+}
+
+message RefundDetails {
+  string lockup_transaction_hash = 1;
+  uint32 lockup_vout = 2;
+
+  uint32 miner_fee = 3;
 }
 
 message CreateSwapRequest {
@@ -202,6 +254,8 @@ message CreateReverseSwapResponse {
   string lockup_address = 3;
   string lockup_transaction = 4;
   string lockup_transaction_hash = 5;
+  uint64 amount_sent = 6;
+  uint32 miner_fee = 7;
 }
 
 message SendCoinsRequest {
@@ -209,8 +263,18 @@ message SendCoinsRequest {
   string address = 2;
   uint64 amount = 3;
   uint32 sat_per_vbyte = 4;
+  bool send_all = 5;
 }
 message SendCoinsResponse {
   string transaction_hash = 1;
   uint32 vout = 2;
+}
+
+message SubscribeChannelBackupsRequest {}
+
+message ChannelBackup {
+  string currency = 1;
+
+  // A multi channel backup contains all open channels
+  string multi_channel_backup = 2;
 }

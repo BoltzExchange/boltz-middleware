@@ -51,11 +51,23 @@ describe('RateProvider', () => {
   const feeProviderMock = mock(FeeProvider);
   when(feeProviderMock.percentageFees).thenReturn(percentageFees);
 
-  when(feeProviderMock.getFee('', 'BTC', 0, false)).thenResolve(minerFees.BTC.normal);
-  when(feeProviderMock.getFee('', 'BTC', 0, true)).thenResolve(minerFees.BTC.reverse.lockup);
+  when(feeProviderMock.getFee('', 'BTC', 0, false)).thenResolve({
+    percentageFee: 0,
+    baseFee: minerFees.BTC.normal,
+  });
+  when(feeProviderMock.getFee('', 'BTC', 0, true)).thenResolve({
+    percentageFee: 0,
+    baseFee: minerFees.BTC.reverse.lockup,
+  });
 
-  when(feeProviderMock.getFee('', 'LTC', 0, false)).thenResolve(minerFees.LTC.normal);
-  when(feeProviderMock.getFee('', 'LTC', 0, true)).thenResolve(minerFees.LTC.reverse.lockup);
+  when(feeProviderMock.getFee('', 'LTC', 0, false)).thenResolve({
+    percentageFee: 0,
+    baseFee: minerFees.LTC.normal,
+  });
+  when(feeProviderMock.getFee('', 'LTC', 0, true)).thenResolve({
+    percentageFee: 0,
+    baseFee: minerFees.LTC.reverse.lockup,
+  });
 
   const rateProvider = new RateProvider(Logger.disabledLogger, instance(feeProviderMock), 0.1, [
     {

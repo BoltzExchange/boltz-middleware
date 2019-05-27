@@ -71,7 +71,8 @@ describe('FeeProvider', () => {
     ];
 
     results.forEach((result, index) => {
-      expect(result).to.be.equal(expected[index]);
+      const totalFee = result.baseFee + result.percentageFee;
+      expect(totalFee).to.be.equal(expected[index]);
     });
   });
 });

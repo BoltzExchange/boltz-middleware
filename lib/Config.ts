@@ -6,6 +6,7 @@ import { ApiConfig } from './api/Api';
 import { PairConfig } from './service/Service';
 import { CurrencyConfig } from './consts/Types';
 import { BoltzConfig } from './boltz/BoltzClient';
+import { BackupConfig } from './backup/BackupScheduler';
 import { getServiceDir, deepMerge, resolveHome } from './Utils';
 import { NotificationConfig } from './notifications/NotificationProvider';
 
@@ -20,6 +21,7 @@ class Config {
   public boltz: BoltzConfig;
 
   public notification: NotificationConfig;
+  public backup: BackupConfig;
 
   public currencies: CurrencyConfig[];
 
@@ -31,7 +33,7 @@ class Config {
   private configpath: string;
 
   constructor() {
-    const { configpath, logpath, dbpath } = this.getDataDirPaths(this.defaultDataDir);
+    const { configpath, logpath, dbpath, backup } = this.getDataDirPaths(this.defaultDataDir);
 
     this.configpath = configpath;
 
@@ -59,6 +61,17 @@ class Config {
 
       prefix: '',
       interval: 1,
+    };
+
+    this.backup = {
+      email: '',
+      privatekeypath: backup.privatekeypath,
+
+      bucketname: '',
+
+      interval: '0 0 * * *',
+
+      backenddbpath: '',
     };
 
     this.currencies = [
@@ -127,6 +140,7 @@ class Config {
       'logpath',
       'dbpath',
       'boltz.certpath',
+      'backup.privatekeypath',
     ];
 
     pathsToResolve.forEach((key) => {
@@ -169,6 +183,9 @@ class Config {
       configpath: path.join(dataDir, 'boltz.conf'),
       logpath: path.join(dataDir, 'boltz.log'),
       dbpath: path.join(dataDir, 'boltz.db'),
+      backup: {
+        privatekeypath: path.join(dataDir, 'backupPrivatekey.pem'),
+      },
     };
   }
 }

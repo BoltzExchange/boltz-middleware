@@ -35,7 +35,10 @@ class FeeProvider {
     // Multiply the amount with the percentage fee or with 0 if there is no percentage fee for that pair
     const percentageFee = Math.ceil((this.percentageFees.get(pair) || 0) * amount);
 
-    return baseFee + percentageFee;
+    return {
+      baseFee,
+      percentageFee,
+    };
   }
 
   private getBaseFee = (satPerVbyte: number, isReverse: boolean) => {
