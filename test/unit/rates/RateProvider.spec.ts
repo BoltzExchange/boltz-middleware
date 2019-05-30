@@ -8,15 +8,20 @@ import PairRepository from '../../../lib/service/PairRepository';
 import DataProvider from '../../../lib/rates/data/DataProvider';
 
 describe('RateProvider', () => {
-  const currencyConfig = {
+  const currencyConfig = (currency: string) => ({
     maxSwapAmount: 1000000,
     minSwapAmount: 1000,
+
+    timeoutBlockDelta: currency.toUpperCase() === 'LTC' ? 8 : 2,
 
     minWalletBalance: 0,
 
     minLocalBalance: 0,
     minRemoteBalance: 0,
-  };
+  });
+
+  const ltcCurrencyConfig = currencyConfig('LTC');
+  const btcCurrencyConfig = currencyConfig('BTC');
 
   // Rates in BTC
   const rates = {
@@ -70,11 +75,11 @@ describe('RateProvider', () => {
   const rateProvider = new RateProvider(Logger.disabledLogger, instance(feeProviderMock), 0.1, [
     {
       symbol: 'BTC',
-      ...currencyConfig,
+      ...btcCurrencyConfig,
     },
     {
       symbol: 'LTC',
-      ...currencyConfig,
+      ...ltcCurrencyConfig,
     },
   ]);
 
@@ -120,10 +125,10 @@ describe('RateProvider', () => {
   it('should get limits', () => {
     const { pairs } = rateProvider;
 
-    expect(pairs.get('BTC/BTC')!.limits).to.be.deep.equal({ maximal: currencyConfig.maxSwapAmount, minimal: currencyConfig.minSwapAmount });
+    expect(pairs.get('BTC/BTC')!.limits).to.be.deep.equal({ maximal: btcCurrencyConfig.maxSwapAmount, minimal: btcCurrencyConfig.minSwapAmount });
     expect(pairs.get('LTC/BTC')!.limits).to.be.deep.equal({
-      maximal: currencyConfig.maxSwapAmount,
-      minimal: Math.floor(currencyConfig.minSwapAmount / rates.LTC),
+      maximal: ltcCurrencyConfig.maxSwapAmount,
+      minimal: Math.floor(ltcCurrencyConfig.minSwapAmount / rates.LTC),
     });
   });
 

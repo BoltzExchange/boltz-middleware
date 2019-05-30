@@ -78,6 +78,8 @@ class Config {
       {
         symbol: 'BTC',
 
+        timeoutBlockDelta: 2,
+
         maxSwapAmount: 100000,
         minSwapAmount: 1000,
 
@@ -88,6 +90,8 @@ class Config {
       },
       {
         symbol: 'LTC',
+
+        timeoutBlockDelta: 8,
 
         maxSwapAmount: 10000000,
         minSwapAmount: 10000,
