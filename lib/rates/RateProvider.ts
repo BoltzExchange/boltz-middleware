@@ -50,7 +50,7 @@ class RateProvider {
 
   private dataProvider = new DataProvider();
 
-  private timer!: NodeJS.Timeout;
+  private timer!: any;
 
   constructor(
     private logger: Logger,
@@ -222,13 +222,13 @@ class RateProvider {
 
   private getFeeFromProvider = async (chainCurrency: string) => {
     const [normal, reverseLockup] = await Promise.all([
-      this.feeProvider.getFee('', chainCurrency, 0, false),
-      this.feeProvider.getFee('', chainCurrency, 0, true),
+      this.feeProvider.getBaseFee(chainCurrency, false),
+      this.feeProvider.getBaseFee(chainCurrency, true),
     ]);
 
     return {
-      normal: normal.baseFee,
-      reverseLockup: reverseLockup.baseFee,
+      normal,
+      reverseLockup,
     };
   }
 }

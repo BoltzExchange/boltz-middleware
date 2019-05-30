@@ -111,7 +111,7 @@ describe('NotificationProvider', () => {
       'Order side: buy\n' +
       `Onchain amount: ${satoshisToCoins(swap.onchainAmount!)} BTC\n` +
       `Lightning amount: ${satoshisToCoins(getAmountOfInvoice(swap.invoice))} LTC\n` +
-      `Fees earned: ${satoshisToCoins(swap.fee)} LTC\n` +
+      `Fees earned: ${satoshisToCoins(swap.fee)} BTC\n` +
       `Miner fees: ${satoshisToCoins(swap.minerFee!)} BTC\n` +
       `Routing fees: ${swap.routingFee! / 1000} litoshi`,
     )).once();

@@ -57,14 +57,14 @@ describe('Report', () => {
       // tslint:disable-next-line: prefer-template
       'date,pair,type,orderSide,failed,minerFee,routingFee,fee,feeCurrency\n' +
 
-      `${formatDate},LTC/BTC,Lightning/Chain,buy,false,0.00010000,0.001,0.00001000,LTC\n` +
-      `${formatDate},LTC/BTC,Chain/Lightning,sell,false,0.00010000,0.001,0.00001000,BTC\n` +
-      `${formatDate},LTC/BTC,Chain/Lightning,buy,false,0.00010000,0.000,0.00001000,BTC\n` +
-      `${formatDate},LTC/BTC,Lightning/Chain,sell,false,0.00010000,0.000,0.00001000,LTC\n` +
-      `${formatDate},LTC/BTC,Lightning/Chain,buy,true,0.00010000,0.001,0.00001000,LTC\n` +
-      `${formatDate},LTC/BTC,Chain/Lightning,sell,true,0.00010000,0.001,0.00001000,BTC\n` +
-      `${formatDate},LTC/BTC,Chain/Lightning,buy,true,0.00010000,0.000,0.00001000,BTC\n` +
-      `${formatDate},LTC/BTC,Lightning/Chain,sell,true,0.00010000,0.000,0.00001000,LTC`,
+      `${formatDate},LTC/BTC,Lightning/Chain,buy,false,0.00010000,0.001,0.00001000,BTC\n` +
+      `${formatDate},LTC/BTC,Chain/Lightning,sell,false,0.00010000,0.001,0.00001000,LTC\n` +
+      `${formatDate},LTC/BTC,Chain/Lightning,buy,false,0.00010000,0.000,0.00001000,LTC\n` +
+      `${formatDate},LTC/BTC,Lightning/Chain,sell,false,0.00010000,0.000,0.00001000,BTC\n` +
+      `${formatDate},LTC/BTC,Lightning/Chain,buy,true,0.00010000,0.001,0.00001000,BTC\n` +
+      `${formatDate},LTC/BTC,Chain/Lightning,sell,true,0.00010000,0.001,0.00001000,LTC\n` +
+      `${formatDate},LTC/BTC,Chain/Lightning,buy,true,0.00010000,0.000,0.00001000,LTC\n` +
+      `${formatDate},LTC/BTC,Lightning/Chain,sell,true,0.00010000,0.000,0.00001000,BTC`,
     );
   });
 });

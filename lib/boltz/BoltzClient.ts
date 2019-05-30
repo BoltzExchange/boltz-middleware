@@ -187,23 +187,26 @@ class BoltzClient extends BaseClient {
   /**
    * Creates a new Swap from the chain to Lightning
    */
-  public createSwap = (baseCurrency: string, quoteCurrency: string, orderSide: boltzrpc.OrderSide, rate: number,
-    fee: number, invoice: string, refundPublicKey: string, timeoutBlockNumber: number, outputType?: boltzrpc.OutputType) => {
-
+  public createSwap = (
+    baseCurrency: string,
+    quoteCurrency: string,
+    orderSide: boltzrpc.OrderSide,
+    invoice: string,
+    expectedAmount: number,
+    refundPublicKey: string,
+    outputType: boltzrpc.OutputType,
+    timeoutBlockDelta: number,
+  ) => {
     const request = new boltzrpc.CreateSwapRequest();
 
-    request.setFee(fee);
-    request.setRate(rate);
     request.setInvoice(invoice);
     request.setOrderSide(orderSide);
-    request.setTimeoutBlockNumber(timeoutBlockNumber);
+    request.setOutputType(outputType);
     request.setBaseCurrency(baseCurrency);
     request.setQuoteCurrency(quoteCurrency);
+    request.setExpectedAmount(expectedAmount);
     request.setRefundPublicKey(refundPublicKey);
-
-    if (outputType) {
-      request.setOutputType(outputType);
-    }
+    request.setTimeoutBlockDelta(timeoutBlockDelta);
 
     return this.unaryCall<boltzrpc.CreateSwapRequest, boltzrpc.CreateSwapResponse.AsObject>('createSwap', request);
   }
@@ -211,19 +214,24 @@ class BoltzClient extends BaseClient {
   /**
    * Creates a new reverse Swap from Lightning to the chain
    */
-  public createReverseSwap = (baseCurrency: string, quoteCurrency: string, orderSide: boltzrpc.OrderSide, rate: number,
-    fee: number, claimPublicKey: string, amount: number, timeoutBlockNumber: number) => {
-
+  public createReverseSwap = (
+    baseCurrency: string,
+    quoteCurrency: string,
+    orderSide: boltzrpc.OrderSide,
+    invoiceAmount: number,
+    onchainAmount: number,
+    claimPublicKey: string,
+    timeoutBlockDelta: number,
+  ) => {
     const request = new boltzrpc.CreateReverseSwapRequest();
 
-    request.setFee(fee);
-    request.setRate(rate);
-    request.setAmount(amount);
-    request.setOrderSide(orderSide);
-    request.setTimeoutBlockNumber(timeoutBlockNumber);
     request.setBaseCurrency(baseCurrency);
     request.setQuoteCurrency(quoteCurrency);
+    request.setOrderSide(orderSide);
+    request.setInvoiceAmount(invoiceAmount);
+    request.setOnchainAmount(onchainAmount);
     request.setClaimPublicKey(claimPublicKey);
+    request.setTimeoutBlockDelta(timeoutBlockDelta);
 
     return this.unaryCall<boltzrpc.CreateReverseSwapRequest, boltzrpc.CreateReverseSwapResponse.AsObject>('createReverseSwap', request);
   }

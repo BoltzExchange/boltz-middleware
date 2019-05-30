@@ -122,7 +122,7 @@ describe('CommandHandler', () => {
     // Calculating the fees takes a little longer than the other commands
     await wait(50);
     verify(discordMock.sendMessage(
-      `Fees:\n\n**LTC**: ${satoshisToCoins(swapExample.fee + reverseSwapExample.fee)} LTC`,
+      `Fees:\n\n**BTC**: ${satoshisToCoins(swapExample.fee + reverseSwapExample.fee)} BTC`,
     )).once();
   });
 

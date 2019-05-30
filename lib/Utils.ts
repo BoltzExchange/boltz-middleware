@@ -185,20 +185,6 @@ export const parseBalances = async (balance: GetBalanceResponse.AsObject) => {
 };
 
 /**
- * Gets the symbol for the fee of a swap
- */
-export const getFeeSymbol = (pairId: string, orderSide: OrderSide, isReverse: boolean): string => {
-  const isBuy = orderSide === OrderSide.BUY;
-  const { base, quote } = splitPairId(pairId);
-
-  if (isReverse) {
-    return isBuy ? quote : base;
-  } else {
-    return isBuy ? base : quote;
-  }
-};
-
-/**
  * Converts the reponse of the backend method "getFeeEstimation" to an object
  */
 export const feeMapToObject = (feesMap: [string, number][]) => {
@@ -220,4 +206,28 @@ export const getSmallestDenomination = (symbol: string): string => {
 
 export const getAmountOfInvoice = (invoice: string): number => {
   return Number(bolt11.decode(invoice).millisatoshis) / 1000;
+};
+
+export const getRate = (rate: number, orderSide: OrderSide, isReverse: boolean) => {
+  if (isReverse) {
+    return orderSide === OrderSide.BUY ? 1 / rate : rate;
+  } else {
+    return orderSide === OrderSide.BUY ? rate : 1 / rate;
+  }
+};
+
+export const getChainCurrency = (base: string, quote: string, orderSide: OrderSide, isReverse: boolean) => {
+  if (isReverse) {
+    return orderSide === OrderSide.BUY ? base : quote;
+  } else {
+    return orderSide === OrderSide.BUY ? quote : base;
+  }
+};
+
+export const getLightningCurrency = (base: string, quote: string, orderSide: OrderSide, isReverse: boolean) => {
+  if (isReverse) {
+    return orderSide === OrderSide.BUY ? quote : base;
+  } else {
+    return orderSide === OrderSide.BUY ? base : quote;
+  }
 };

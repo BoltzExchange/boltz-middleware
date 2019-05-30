@@ -8,7 +8,7 @@ import BoltzClient from '../boltz/BoltzClient';
 import { OutputType } from '../proto/boltzrpc_pb';
 import ReverseSwap from '../db/models/ReverseSwap';
 import BackupScheduler from '../backup/BackupScheduler';
-import { satoshisToCoins, parseBalances, getFeeSymbol, stringify } from '../Utils';
+import { satoshisToCoins, parseBalances, getChainCurrency, stringify, splitPairId } from '../Utils';
 
 enum Command {
   Help = 'help',
@@ -212,7 +212,9 @@ class CommandHandler {
 
     const getFeeFromSwapMap = (array: Swap[] | ReverseSwap[], isReverse: boolean) => {
       array.forEach((swap: Swap | ReverseSwap) => {
-        const feeSymbol = getFeeSymbol(swap.pair, swap.orderSide, isReverse);
+        const { base, quote } = splitPairId(swap.pair);
+        const feeSymbol = getChainCurrency(base, quote, swap.orderSide, isReverse);
+
         const fee = fees.get(feeSymbol);
 
         if (fee) {

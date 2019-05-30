@@ -15,7 +15,17 @@ import ReverseSwapRepository from './ReverseSwapRepository';
 import { SwapUpdateEvent, ServiceWarning } from '../consts/Enums';
 import { SwapUpdate, CurrencyConfig, PairConfig } from '../consts/Types';
 import { OrderSide, OutputType, CurrencyInfo } from '../proto/boltzrpc_pb';
-import { splitPairId, stringify, generateId, mapToObject, feeMapToObject, getAmountOfInvoice } from '../Utils';
+import {
+  getRate,
+  stringify,
+  generateId,
+  splitPairId,
+  mapToObject,
+  feeMapToObject,
+  getChainCurrency,
+  getAmountOfInvoice,
+  getLightningCurrency,
+} from '../Utils';
 
 type PairType = {
   id: string;
@@ -223,31 +233,38 @@ class Service extends EventEmitter {
   public createSwap = async (pairId: string, orderSide: string, invoice: string, refundPublicKey: string) => {
     await this.checkSwapInvoice(invoice);
 
-    const { base, quote, rate } = this.getPair(pairId);
-
-    const chainConfig = this.getChainConfig(base);
-
-    if (chainConfig !== undefined) {
-      throw Errors.CURRENCY_NOT_SUPPORTED_BY_BACKEND(base);
-    }
-
+    const { base, quote, rate: pairRate } = this.getPair(pairId);
     const side = this.getOrderSide(orderSide);
 
-    const chainCurrency = side === OrderSide.BUY ? quote : base;
-    const lightningCurrency = side === OrderSide.BUY ? base : quote;
+    const chainCurrency = getChainCurrency(base, quote, side, false);
+    const lightningCurrency = getLightningCurrency(base, quote, side, false);
 
-    const satoshi = getAmountOfInvoice(invoice);
+    const { timeoutBlockDelta } = this.getChainConfig(chainCurrency);
 
-    this.verifyAmount(satoshi, pairId, side, false, rate);
-    const { baseFee, percentageFee } = await this.feeProvider.getFee(pairId, chainCurrency, satoshi, false);
+    const invoiceAmount = getAmountOfInvoice(invoice);
+
+    const rate = getRate(pairRate, side, false);
+
+    this.verifyAmount(pairId, rate, invoiceAmount, side);
+
+    const { baseFee, percentageFee } = await this.feeProvider.getFees(pairId, rate, side, invoiceAmount, false);
+    const expectedAmount = Math.ceil(invoiceAmount * rate) + baseFee + percentageFee;
 
     const {
       address,
       redeemScript,
-      expectedAmount,
       timeoutBlockHeight,
-    } = await this.boltz.createSwap(base, quote, side, rate, baseFee + percentageFee, invoice, refundPublicKey,
-      chainConfig!.timeoutBlockDelta, OutputType.COMPATIBILITY);
+    } = await this.boltz.createSwap(
+      base,
+      quote,
+      side,
+      invoice,
+      expectedAmount,
+      refundPublicKey,
+      OutputType.COMPATIBILITY,
+      timeoutBlockDelta,
+    );
+
     await this.boltz.listenOnAddress(chainCurrency, address);
 
     const id = generateId(6);
@@ -279,34 +296,45 @@ class Service extends EventEmitter {
   /**
    * Creates a new reverse Swap from Lightning to the chain
    */
-  public createReverseSwap = async (pairId: string, orderSide: string, claimPublicKey: string, amount: number) => {
+  public createReverseSwap = async (pairId: string, orderSide: string, invoiceAmount: number, claimPublicKey: string) => {
     if (!this.allowReverseSwaps) {
       throw Errors.REVERSE_SWAPS_DISABLED();
     }
 
-    const { base, quote, rate } = this.getPair(pairId);
-
-    const chainConfig = this.getChainConfig(base);
-
-    if (chainConfig !== undefined) {
-      throw Errors.CURRENCY_NOT_SUPPORTED_BY_BACKEND(base);
-    }
+    const { base, quote, rate: pairRate } = this.getPair(pairId);
 
     const side = this.getOrderSide(orderSide);
-    const chainCurrency = side === OrderSide.BUY ? base : quote;
+    const chainCurrency = getChainCurrency(base, quote, side, true);
 
-    this.verifyAmount(amount, pairId, side, true, rate);
-    const { baseFee, percentageFee } = await this.feeProvider.getFee(pairId, chainCurrency, amount, true);
+    const { timeoutBlockDelta } = this.getChainConfig(chainCurrency);
+
+    const rate = getRate(pairRate, side, true);
+
+    this.verifyAmount(pairId, rate, invoiceAmount, side);
+    const { baseFee, percentageFee } = await this.feeProvider.getFees(pairId, rate, side, invoiceAmount, true);
+
+    const onchainAmount = Math.floor(invoiceAmount * rate) - (baseFee + percentageFee);
+
+    if (onchainAmount < 1) {
+      throw Errors.AMOUNT_TOO_LOW();
+    }
 
     const {
       invoice,
       minerFee,
-      amountSent,
       redeemScript,
       lockupAddress,
       lockupTransaction,
       lockupTransactionHash,
-    } = await this.boltz.createReverseSwap(base, quote, side, rate, baseFee + percentageFee, claimPublicKey, amount, chainConfig!.timeoutBlockDelta);
+    } = await this.boltz.createReverseSwap(
+      base,
+      quote,
+      side,
+      invoiceAmount,
+      onchainAmount,
+      claimPublicKey,
+      timeoutBlockDelta,
+    );
 
     await this.boltz.listenOnAddress(chainCurrency, lockupAddress);
 
@@ -316,10 +344,10 @@ class Service extends EventEmitter {
       id,
       invoice,
       minerFee,
+      onchainAmount,
       pair: pairId,
       orderSide: side,
       fee: percentageFee,
-      onchainAmount: amountSent,
       transactionId: lockupTransactionHash,
     });
 
@@ -372,12 +400,10 @@ class Service extends EventEmitter {
   /**
    * Verfies that the requested amount is neither above the maximal nor beneath the minimal
    */
-  private verifyAmount = (amount: number, pairId: string, orderSide: OrderSide, isReverse: boolean, rate: number) => {
-    if (
-      (!isReverse && orderSide === OrderSide.SELL) ||
-      (isReverse && orderSide === OrderSide.BUY)) {
+  private verifyAmount = (pairId: string, rate: number, amount: number, orderSide: OrderSide) => {
+    if (orderSide === OrderSide.SELL) {
       // tslint:disable-next-line:no-parameter-reassignment
-      amount = amount * (1 / rate);
+      amount = Math.floor(amount * rate);
     }
 
     const { limits } = this.getPair(pairId);
@@ -435,10 +461,15 @@ class Service extends EventEmitter {
     });
   }
 
-  private getChainConfig = (symbol: string): CurrencyConfig | undefined => {
+  private getChainConfig = (symbol: string) => {
     const config = this.currencies.find((asset: CurrencyConfig) => {
       return asset.symbol === symbol;
     });
+
+    if (config === undefined) {
+      throw Errors.CURRENCY_NOT_SUPPORTED_BY_BACKEND(symbol);
+    }
+
     return config;
   }
 
