@@ -1,9 +1,9 @@
 import Logger from '../Logger';
 import FeeProvider from './FeeProvider';
-import CryptoCompare from './CryptoCompare';
+import DataProvider from './data/DataProvider';
 import { CurrencyConfig } from '../consts/Types';
 import Pair from '../db/models/Pair';
-import { getPairId, stringify, mapToObject, minutesToMilliseconds } from '../Utils';
+import { stringify, mapToObject, minutesToMilliseconds, getPairId } from '../Utils';
 
 type Limits = {
   minimal: number;
@@ -36,9 +36,8 @@ class RateProvider {
   // A map between the pair ids and the rate, limits and fees of that pair
   public pairs = new Map<string, PairType>();
 
-  // A map between quote and their base assets
-  // So that there is just one CryptoCompare request per quote asset needed
-  private baseAssetsMap = new Map<string, string[]>();
+  // An array of tuples between the base and quote asset of all pairs for which the rate should be queried
+  public pairsToQuery: [string, string][] = [];
 
   // A map of all pairs with hardcoded rates
   private hardcodedPairs = new Map<string, { base: string, quote: string }>();
@@ -49,7 +48,7 @@ class RateProvider {
   // A copy of the "percentageFees" Map in the FeeProvider but all values are multiplied with 100
   private percentageFees = new Map<string, number>();
 
-  private cryptoCompare = new CryptoCompare();
+  private dataProvider = new DataProvider();
 
   private timer!: NodeJS.Timeout;
 
@@ -59,14 +58,9 @@ class RateProvider {
     private rateUpdateInterval: number,
     currencies: CurrencyConfig[]) {
 
-    this.cryptoCompare = new CryptoCompare();
-
     this.parseCurrencies(currencies);
   }
 
-  /**
-   * Gets a map of of rates from CryptoCompare for the provided pairs
-   */
   public init = async (pairs: Pair[]) => {
     this.feeProvider.percentageFees.forEach((percentage, pair) => {
       // Multiply with 100 to get the percentage
@@ -76,7 +70,7 @@ class RateProvider {
     const minerFees = await this.getMinerFees();
 
     pairs.forEach((pair) => {
-      // If a pair has a hardcoded rate the CryptoCompare rate doesn't have to be queried
+      // If a pair has a hardcoded rate the rate doesn't have to be queried from the exchanges
       if (pair.rate) {
         this.logger.debug(`Setting hardcoded rate for pair ${pair.id}: ${pair.rate}`);
 
@@ -96,25 +90,17 @@ class RateProvider {
           base: pair.base,
           quote: pair.quote,
         });
-
-        return;
-      }
-
-      const baseAssets = this.baseAssetsMap.get(pair.quote);
-
-      if (baseAssets) {
-        baseAssets.push(pair.base);
       } else {
-        this.baseAssetsMap.set(pair.quote, [pair.base]);
+        this.pairsToQuery.push([pair.base, pair.quote]);
       }
     });
 
-    this.logger.silly(`Prepared data for requests to CryptoCompare: ${stringify(mapToObject(this.baseAssetsMap))}`);
+    this.logger.debug(`Prepared data for requests to exchanges: ${stringify(this.pairsToQuery)}`);
 
     await this.updateRates(minerFees);
 
     this.logger.debug(`Got pairs: ${stringify(mapToObject(this.pairs))}`);
-    this.logger.silly(`Updating rates every ${this.rateUpdateInterval} minutes`);
+    this.logger.debug(`Updating rates every ${this.rateUpdateInterval} minutes`);
 
     this.timer = setInterval(async () => {
       await this.updateRates(await this.getMinerFees());
@@ -129,15 +115,15 @@ class RateProvider {
     const promises: Promise<any>[] = [];
 
     // Update the pairs with a variable rate
-    this.baseAssetsMap.forEach((baseAssets, quoteAsset) => {
+    this.pairsToQuery.forEach(([base, quote]) => {
       promises.push(new Promise(async (resolve) => {
-        const baseAssetsRates = await this.cryptoCompare.getPriceMulti(baseAssets, [quoteAsset]);
+        const rate = await this.dataProvider.getPrice(base, quote);
 
-        baseAssets.forEach((baseAsset) => {
-          const pair = getPairId({ base: baseAsset, quote: quoteAsset });
-          const rate = baseAssetsRates[baseAsset][quoteAsset];
-
-          const limits = this.getLimits(pair, baseAsset, quoteAsset, rate);
+        // If the rate returned is "null" or "NaN" that means that all requests to the APIs of the exchanges
+        // failed and that the pairs and limits don't have to be updated
+        if (rate !== null && !isNaN(rate)) {
+          const pair = getPairId({ base, quote });
+          const limits = this.getLimits(pair, base, quote, rate);
 
           this.pairs.set(pair, {
             rate,
@@ -145,12 +131,12 @@ class RateProvider {
             fees: {
               percentage: this.percentageFees.get(pair)!,
               minerFees: {
-                baseAsset: minerFees.get(baseAsset)!,
-                quoteAsset: minerFees.get(quoteAsset)!,
+                baseAsset: minerFees.get(base)!,
+                quoteAsset: minerFees.get(quote)!,
               },
             },
           });
-        });
+        }
 
         resolve();
       }));
@@ -170,7 +156,7 @@ class RateProvider {
 
     await Promise.all(promises);
 
-    this.logger.silly('Updated pairs');
+    this.logger.silly(`Updates rates: ${stringify(mapToObject(this.pairs))}`);
   }
 
   private getLimits = (pair: string, base: string, quote: string, rate: number) => {

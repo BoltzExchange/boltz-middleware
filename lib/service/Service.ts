@@ -501,7 +501,7 @@ class Service extends EventEmitter {
         this.logger.info(`Swap ${swap.id} failed: ${error.message}`);
 
         this.emit('swap.update', swap.id, { event: SwapUpdateEvent.SwapExpired });
-        this.emit('swap.failed', swap, '');
+        this.emit('swap.failed', swap, error.message);
       }
     });
   }
