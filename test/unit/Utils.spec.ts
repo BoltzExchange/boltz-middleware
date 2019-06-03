@@ -72,14 +72,6 @@ describe('Utils', () => {
     expect(utils.satoshisToCoins(randomSat)).to.equal(coins);
   });
 
-  it('should get fee symbol', () => {
-    expect(utils.getFeeSymbol(pairId, OrderSide.BUY, true)).to.be.equal(pair.quote);
-    expect(utils.getFeeSymbol(pairId, OrderSide.SELL, true)).to.be.equal(pair.base);
-
-    expect(utils.getFeeSymbol(pairId, OrderSide.BUY, false)).to.be.equal(pair.base);
-    expect(utils.getFeeSymbol(pairId, OrderSide.SELL, false)).to.be.equal(pair.quote);
-  });
-
   it('should convert fee map to object', () => {
     const map: [string, number][] = [['BTC', 100], ['LTC', 2]];
 
@@ -104,5 +96,36 @@ describe('Utils', () => {
       // tslint:disable-next-line: max-line-length
       'lnbcrt987650n1pwddnskpp5d4tw4gpjgqdqlgkq5yc309r2kguure53cff8a0kjta5hurltc4yqdqqcqzpgzeu404h9udp5ay39kdvau7m5kdkvycajfhx46slgkfgyhpngnztptulxpx8s7qncp45v5nxjulje5268cu22gxysg9hm3ul8ktrw5zgqcg98hg',
     )).to.be.equal(98765);
+  });
+
+  it('should get rate', () => {
+    const rate = 2;
+    const reverseRate = 1 / rate;
+
+    expect(utils.getRate(rate, OrderSide.BUY, true)).to.be.equal(reverseRate);
+    expect(utils.getRate(rate, OrderSide.SELL, true)).to.be.equal(rate);
+
+    expect(utils.getRate(rate, OrderSide.BUY, false)).to.be.equal(rate);
+    expect(utils.getRate(rate, OrderSide.SELL, false)).to.be.equal(reverseRate);
+  });
+
+  it('should the chain currency', () => {
+    const { base, quote } = pair;
+
+    expect(utils.getChainCurrency(base, quote, OrderSide.BUY, true)).to.be.equal(base);
+    expect(utils.getChainCurrency(base, quote, OrderSide.SELL, true)).to.be.equal(quote);
+
+    expect(utils.getChainCurrency(base, quote, OrderSide.BUY, false)).to.be.equal(quote);
+    expect(utils.getChainCurrency(base, quote, OrderSide.SELL, false)).to.be.equal(base);
+  });
+
+  it('should the lightning currency', () => {
+    const { base, quote } = pair;
+
+    expect(utils.getLightningCurrency(base, quote, OrderSide.BUY, true)).to.be.equal(quote);
+    expect(utils.getLightningCurrency(base, quote, OrderSide.SELL, true)).to.be.equal(base);
+
+    expect(utils.getLightningCurrency(base, quote, OrderSide.BUY, false)).to.be.equal(base);
+    expect(utils.getLightningCurrency(base, quote, OrderSide.SELL, false)).to.be.equal(quote);
   });
 });

@@ -8,7 +8,7 @@ import { SwapUpdateEvent } from '../consts/Enums';
 import ReverseSwap from '../db/models/ReverseSwap';
 import SwapRepository from '../service/SwapRepository';
 import ReverseSwapRepository from '../service/ReverseSwapRepository';
-import { getFeeSymbol, resolveHome, satoshisToCoins } from '../Utils';
+import { getChainCurrency, resolveHome, satoshisToCoins, splitPairId } from '../Utils';
 
 type Entry = {
   date: Date;
@@ -131,6 +131,7 @@ class Report {
 
     const pushToEntries = (array: Swap[] | ReverseSwap[], isReverse: boolean) => {
       array.forEach((swap: Swap | ReverseSwap) => {
+        const { base, quote } = splitPairId(swap.pair);
         const routingFee = swap['routingFee'] ? swap['routingFee'] : 0;
 
         entries.push({
@@ -145,7 +146,7 @@ class Report {
           routingFee: (routingFee / 1000).toFixed(3),
 
           fee: this.formatAmount(swap.fee),
-          feeCurrency: getFeeSymbol(swap.pair, swap.orderSide, isReverse),
+          feeCurrency: getChainCurrency(base, quote, swap.orderSide, isReverse),
         });
       });
     };

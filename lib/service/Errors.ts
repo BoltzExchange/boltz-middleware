@@ -43,4 +43,8 @@ export default {
     message: 'onchain HTLC timed out',
     code: concatErrorCode(ErrorCodePrefix.Service, 9),
   }),
+  AMOUNT_TOO_LOW: (): Error => ({
+    message: 'onchain amount is too low',
+    code: concatErrorCode(ErrorCodePrefix.Service, 10),
+  }),
 };

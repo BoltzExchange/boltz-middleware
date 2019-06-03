@@ -128,14 +128,14 @@ class Controller {
 
   public createReverseSwap = async (req: Request, res: Response) => {
     try {
-      const { pairId, orderSide, claimPublicKey, amount } = this.validateBody(req.body, [
+      const { pairId, orderSide, invoiceAmount, claimPublicKey } = this.validateBody(req.body, [
         { name: 'pairId', type: 'string' },
         { name: 'orderSide', type: 'string' },
+        { name: 'invoiceAmount', type: 'number' },
         { name: 'claimPublicKey', type: 'string' },
-        { name: 'amount', type: 'number' },
       ]);
 
-      const response = await this.service.createReverseSwap(pairId, orderSide, claimPublicKey, amount);
+      const response = await this.service.createReverseSwap(pairId, orderSide, invoiceAmount, claimPublicKey);
 
       this.logger.verbose(`Created reverse swap with id: ${response.id}`);
       this.logger.silly(`Reverse swap ${response.id}: ${stringify(response)}`);

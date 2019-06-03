@@ -29,7 +29,7 @@ type NotificationConfig = {
 class NotificationProvider {
   private readonly backendName = 'backend';
 
-  private timer!: NodeJS.Timer;
+  private timer!: any;
   private discord: DiscordClient;
 
   // These Sets contain the symbols for which an alert notification was sent
@@ -225,7 +225,7 @@ class NotificationProvider {
       // tslint:disable-next-line: prefer-template
       let message = `**${getSwapName(isReverse)}**\n\n` +
        `${getBasicSwapInfo(swap, onchainSymbol, lightningSymbol)}` +
-       `Fees earned: ${satoshisToCoins(swap.fee)} ${lightningSymbol}\n` +
+       `Fees earned: ${satoshisToCoins(swap.fee)} ${onchainSymbol}\n` +
        `Miner fees: ${satoshisToCoins(swap.minerFee!)} ${onchainSymbol}`;
 
       if (!isReverse) {
