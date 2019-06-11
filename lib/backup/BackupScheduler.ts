@@ -2,7 +2,7 @@ import { readFileSync } from 'fs';
 import { scheduleJob } from 'node-schedule';
 import { Storage, Bucket } from '@google-cloud/storage';
 import Logger from '../Logger';
-import Report from '../report/Report';
+import Report from '../data/Report';
 import BoltzClient from '../boltz/BoltzClient';
 
 type BackupConfig = {

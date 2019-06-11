@@ -61,7 +61,7 @@ export const stringify = (object: any) => {
  * Turn a map into an object
  */
 export const mapToObject = (map: Map<any, any>) => {
-  const object: any = {};
+  const object = {};
 
   map.forEach((value, index) => {
     object[index] = value;
@@ -204,7 +204,7 @@ export const getSmallestDenomination = (symbol: string): string => {
   }
 };
 
-export const getAmountOfInvoice = (invoice: string): number => {
+export const getInvoiceAmount = (invoice: string): number => {
   return Number(bolt11.decode(invoice).millisatoshis) / 1000;
 };
 

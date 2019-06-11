@@ -23,7 +23,7 @@ import {
   mapToObject,
   feeMapToObject,
   getChainCurrency,
-  getAmountOfInvoice,
+  getInvoiceAmount,
   getLightningCurrency,
 } from '../Utils';
 
@@ -241,7 +241,7 @@ class Service extends EventEmitter {
 
     const { timeoutBlockDelta } = this.getChainConfig(chainCurrency);
 
-    const invoiceAmount = getAmountOfInvoice(invoice);
+    const invoiceAmount = getInvoiceAmount(invoice);
 
     const rate = getRate(pairRate, side, false);
 

@@ -2,7 +2,7 @@ import { Arguments } from 'yargs';
 import Api from './api/Api';
 import Config from './Config';
 import Logger from './Logger';
-import Report from './report/Report';
+import Report from './data/Report';
 import Database from './db/Database';
 import Service from './service/Service';
 import BoltzClient from './boltz/BoltzClient';

@@ -171,6 +171,25 @@ describe('CommandHandler', () => {
     verify(discordMock.sendMessage(`${errorMessage}${id}`)).once();
   });
 
+  it('should get statistics', async () => {
+    sendMessage('getstats');
+    await wait(50);
+
+    verify(discordMock.sendMessage(`\`\`\`${stringify({
+      failureRates: {
+        swaps: 0,
+        reverseSwaps: 0,
+      },
+      volume: {
+        BTC: 0.02,
+      },
+      trades: {
+        'LTC/BTC': 2,
+      },
+    },
+    )}\`\`\``)).once();
+  });
+
   it('should parse output types', () => {
     const getOutputType = commandHandler['getOutputType'];
 

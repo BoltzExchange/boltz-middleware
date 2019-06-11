@@ -1,7 +1,8 @@
 import { Op } from 'sequelize';
 import Logger from '../Logger';
+import Stats from '../data/Stats';
+import Report from '../data/Report';
 import Swap from '../db/models/Swap';
-import Report from '../report/Report';
 import Service from '../service/Service';
 import DiscordClient from './DiscordClient';
 import BoltzClient from '../boltz/BoltzClient';
@@ -16,6 +17,7 @@ enum Command {
   // Commands that retrieve information
   GetFees = 'getfees',
   SwapInfo = 'swapinfo',
+  GetStats = 'getstats',
   GetBalance = 'getbalance',
 
   // Commands that generate a value or trigger a function
@@ -32,6 +34,8 @@ type CommandInfo = {
 class CommandHandler {
   private commands: Map<string, CommandInfo>;
 
+  private static codeBlock = '\`\`\`';
+
   constructor(
     private logger: Logger,
     private discord: DiscordClient,
@@ -44,6 +48,7 @@ class CommandHandler {
 
       [Command.GetFees, { description: 'gets the accumulated fees', executor: this.getFees }],
       [Command.GetBalance, { description: 'gets the balance of the wallets and channels', executor: this.getBalance }],
+      [Command.GetStats, { description: 'gets stats of all successful swaps', executor: this.getStats }],
       [Command.SwapInfo, { description: 'gets all available information about a (reverse) swap', executor: this.swapInfo }],
 
       [Command.Backup, { description: 'uploads a backup of the databases', executor: this.backup }],
@@ -155,6 +160,12 @@ class CommandHandler {
     await this.sendCouldNotFindSwap(id);
   }
 
+  private getStats = async () => {
+    const stats = await new Stats(this.service.swapRepository, this.service.reverseSwapRepository).generate();
+
+    await this.discord.sendMessage(`${CommandHandler.codeBlock}${stats}${CommandHandler.codeBlock}`);
+  }
+
   private newAddress = async (args: string[]) => {
     try {
       if (args.length === 0) {
@@ -232,7 +243,9 @@ class CommandHandler {
   }
 
   private sendSwapInfo = async (swap: Swap | ReverseSwap, isReverse: boolean) => {
-    await this.discord.sendMessage(`${isReverse ? 'Reverse swap' : 'Swap'} ${swap.id}:\n\`\`\`${stringify(swap)}\`\`\``);
+    // tslint:disable-next-line: prefer-template
+    await this.discord.sendMessage(`${isReverse ? 'Reverse swap' : 'Swap'} ${swap.id}:\n` +
+      `${CommandHandler.codeBlock}${stringify(swap)}${CommandHandler.codeBlock}`);
   }
 
   private sendCouldNotFindSwap = async (id: string) => {

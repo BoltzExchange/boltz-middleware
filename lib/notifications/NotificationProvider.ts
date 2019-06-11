@@ -13,7 +13,7 @@ import {
   splitPairId,
   parseBalances,
   satoshisToCoins,
-  getAmountOfInvoice,
+  getInvoiceAmount,
   minutesToMilliseconds,
   getSmallestDenomination,
 } from '../Utils';
@@ -189,7 +189,7 @@ class NotificationProvider {
     const getSwapName = (isReverse: boolean) => isReverse ? 'Reverse swap' : 'Swap';
 
     const getBasicSwapInfo = (swap: Swap | ReverseSwap, onchainSymbol: string, lightningSymbol: string) => {
-      const lightningAmount = getAmountOfInvoice(swap.invoice);
+      const lightningAmount = getInvoiceAmount(swap.invoice);
 
       // tslint:disable-next-line: prefer-template
       return `ID: ${swap.id}\n` +
