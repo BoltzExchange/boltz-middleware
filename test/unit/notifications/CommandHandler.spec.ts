@@ -258,6 +258,7 @@ export const swapExample = {
   minerFee: 306,
   routingFee: 1,
   pair: 'LTC/BTC',
+  acceptZeroConf: true,
   onchainAmount: 1000000,
   status: SwapUpdateEvent.TransactionClaimed,
   lockupAddress: 'bcrt1q4fgsuxk4q0uhmqm4hlhwz2kv4k374f5ta2dqn2',

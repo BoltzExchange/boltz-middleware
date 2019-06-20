@@ -16,6 +16,7 @@ export enum SwapUpdateEvent {
   InvoiceSettled = 'invoice.settled',
   InvoiceFailedToPay = 'invoice.failedToPay',
 
+  TransactionMempool = 'transaction.mempool',
   TransactionClaimed = 'transaction.claimed',
   TransactionRefunded = 'transaction.refunded',
   TransactionConfirmed = 'transaction.confirmed',

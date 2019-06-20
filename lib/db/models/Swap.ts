@@ -9,6 +9,7 @@ class Swap extends Model {
   public pair!: string;
   public orderSide!: number;
   public status?: string;
+  public acceptZeroConf!: boolean;
   public invoice!: string;
   public onchainAmount?: number;
   public lockupAddress!: string;
@@ -26,6 +27,7 @@ class Swap extends Model {
       pair: { type: new DataTypes.STRING(255), allowNull: false },
       orderSide: { type: new DataTypes.INTEGER(), allowNull: false },
       status: { type: new DataTypes.STRING(255), allowNull: true },
+      acceptZeroConf: { type: DataTypes.BOOLEAN, allowNull: false },
       invoice: { type: new DataTypes.STRING(255), unique: true, allowNull: false },
       onchainAmount: { type: new DataTypes.INTEGER(), allowNull: true },
       lockupAddress: { type: new DataTypes.STRING(255), allowNull: false },
